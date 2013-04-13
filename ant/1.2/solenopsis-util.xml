@@ -65,26 +65,16 @@
 
     <!-- =========================================================================================== -->
 
-	<macrodef name="describeMetadata" backtrace="true" uri="http://solenopsis.org/Solenopsis/solenopsis" description="Generate a complete package.xml with all elements defined">
+	<macrodef name="describeMetadata" backtrace="true" uri="http://solenopsis.org/Solenopsis/solenopsis" description="Describe metadata for an org">
 		<attribute name="orgName"     default="${solenopsis.org.DEFAULT}" description="The name of the SFDC org as found in solenopsis.user.HOME"/>
 		<attribute name="trace"       default="${sfdc.call.TRACE}"        description="Emit the SOAP requests and responses"/>
 		<attribute name="description" default=""                          description="Comments about why this macrodef is being used"/>
+		<attribute name="resultFile"  default=""                          description="If set, a file to emit the metadata to"/>
 
 		<sequential>
 			<solenopsis-util:loadOrgProperties orgName="@{orgName}"/>
 
-			<local name="PASSWORD"/>
-			<property name="PASSWORD" value="${solenopis.org.@{orgName}.password}${solenopis.org.@{orgName}.token}"/>
-
-			<util:ifEqual arg1="" arg2="${solenopis.org.@{orgName}.api}">
-				<util:then>
-					<sfdc:describeMetadata username="${solenopis.org.@{orgName}.username}" password="${PASSWORD}" serverurl="${solenopis.org.@{orgName}.url}"/>
-				</util:then>
-
-				<util:else>
-					<sfdc:describeMetadata username="${solenopis.org.@{orgName}.username}" password="${PASSWORD}" apiVersion="${solenopis.org.@{orgName}.api}" serverurl="${solenopis.org.@{orgName}.url}"/>
-				</util:else>
-			</util:ifEqual>
+			<salesforce-util:describeMetadata username="${solenopis.org.@{orgName}.username}" password="${solenopis.org.@{orgName}.password}" token="${solenopis.org.@{orgName}.token}" api="${solenopis.org.@{orgName}.api}" url="${solenopis.org.@{orgName}.url}" trace="@{trace}" resultFile="@{resultFile}"/>
 		</sequential>
 	</macrodef>
 
