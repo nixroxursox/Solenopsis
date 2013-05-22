@@ -1,0 +1,1117 @@
+<!--
+# Copyright 2011 Red Hat Inc.
+#
+# This file is part of solenopsis
+#
+# solenopsis is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 3
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
+-->
+<project name="Utilities" basedir="." xmlns:ant-contrib="http://ant-contrib.sourceforge.net" xmlns:solenopsis-util="http://solenopsis.org/Solenopsis/common">
+
+    <!-- =========================================================================================== -->
+
+	<import file="setup-antcontrib.xml"/>
+
+    <!-- =========================================================================================== -->
+
+	<property name="solenopsis-util.LESS_THAN"    value="&lt;" description="XML escaped less than symbol"/>
+	<property name="solenopsis-util.GREATER_THAN" value="&gt;" description="XML escaped greather than symbol"/>
+
+    <!-- =========================================================================================== -->
+
+	<macrodef name="baseName" backtrace="true" uri="http://solenopsis.org/Solenopsis/common" description="Compute the basename of @{file} and store in @{property}">
+		<attribute name="property"/>
+		<attribute name="file"/>
+		<attribute name="suffix" default=""/>
+
+		<sequential>
+			<ant-contrib:var name="baseName.PROPERTY" unset="true" value=""/>
+
+			<ant-contrib:if>
+				<equals arg1="" arg2="@{suffix}"/>
+				<ant-contrib:then>
+					<basename property="baseName.PROPERTY" file="@{file}"/>
+				</ant-contrib:then>
+				<ant-contrib:else>
+					<basename property="baseName.PROPERTY" file="@{file}" suffix="@{suffix}"/>
+				</ant-contrib:else>
+			</ant-contrib:if>
+
+			<ant-contrib:var name="@{property}" value="${baseName.PROPERTY}"/>
+		</sequential>
+	</macrodef>
+
+    <!-- =========================================================================================== -->
+
+	<macrodef name="baseName-List" backtrace="true" uri="http://solenopsis.org/Solenopsis/common" description="Iterate over a suffix list, and compute the basename for @{file}">
+		<attribute name="property"/>
+		<attribute name="file"/>
+		<attribute name="suffixList"      default=""/>
+		<attribute name="suffixDelimiter" default=" " description="The delimiter between each suffix found in @{suffixList}"/>
+
+		<sequential>
+			<ant-contrib:var name="baseName-List.FILE" value="@{file}"/>
+			<ant-contrib:var name="@{property}" unset="true" value=""/>
+
+			<!--
+				If there is a suffix list, we will iterate over the list
+				and process.  Otherwise, just go after the base name.  With
+				"for" loop processing, need at least one value in the list to
+				iterate - thus the need for a check here.
+			-->
+			<solenopsis-util:ifNotEqual arg1="@{suffixList}" arg2="">
+				<solenopsis-util:then>
+					<solenopsis-util:processList param="baseName-List.SUFFIX" list="@{suffixList}" listDelimiter="@{suffixDelimiter}">
+						<solenopsis-util:baseName property="baseName-List.FILE" file="${baseName-List.FILE}" suffix="@{baseName-List.SUFFIX}"/>
+					</solenopsis-util:processList>
+
+					<solenopsis-util:property name="@{property}" value="${baseName-List.FILE}"/>
+				</solenopsis-util:then>
+
+				<solenopsis-util:else>
+					<solenopsis-util:baseName property="@{property}" file="${baseName-List.FILE}"/>
+				</solenopsis-util:else>
+			</solenopsis-util:ifNotEqual>
+		</sequential>
+	</macrodef>
+
+    <!-- =========================================================================================== -->
+
+	<macrodef name="dirName" backtrace="true" uri="http://solenopsis.org/Solenopsis/common" description="Compute the dirname of @{file} and store in @{property}">
+		<attribute name="property"/>
+		<attribute name="file"/>
+
+		<sequential>
+			<ant-contrib:var name="@{property}" value="" unset="true"/>
+
+			<dirname property="@{property}" file="@{file}"/>
+		</sequential>
+	</macrodef>
+
+    <!-- =========================================================================================== -->
+
+	<scriptdef name="relativeDirName" uri="http://solenopsis.org/Solenopsis/common" language="beanshell" description="Compute the dirname of @{file} and store in @{property}.  Assumes the dir may be relative and not absolute">
+		<classpath>
+			<fileset dir="${solenopsis.lib.HOME}" includes="*.jar"/>
+		</classpath>
+
+		<attribute name="property"/>
+		<attribute name="file"/>
+
+		<![CDATA[
+			import java.io.File;
+
+			File f = new File(attributes.get("file"));
+
+			project.setProperty(attributes.get("property"), f.getParentFile().getName());
+		]]>
+	</scriptdef>
+
+    <!-- =========================================================================================== -->
+
+	<macrodef name="dirIncludedBaseName" backtrace="true" uri="http://solenopsis.org/Solenopsis/common" description="Compute the basename of @{file} and store the dir name plus base name in @{property}">
+		<attribute name="property" description="Proprety to store result"/>
+		<attribute name="file"     description="The file name to compute the directory plus basename"/>
+		<attribute name="suffix" default=""/>
+
+		<sequential>
+			<solenopsis-util:dirName  property="dirIncludedBaseName.dirName"  file="@{file}"/>
+			<solenopsis-util:baseName property="dirIncludedBaseName.baseName" file="@{file}" suffix="@{suffix}"/>
+
+			<solenopsis-util:property name="@{property}" value="${dirIncludedBaseName.dirName}${file.separator}${dirIncludedBaseName.baseName}"/>
+		</sequential>
+	</macrodef>
+
+    <!-- =========================================================================================== -->
+
+	<macrodef name="property" backtrace="true" uri="http://solenopsis.org/Solenopsis/common" description="Set the property @{name} to value @{value} - mutable property">
+		<attribute name="name"/>
+		<attribute name="value"/>
+
+		<sequential>
+			<ant-contrib:var name="@{name}" value="@{value}"/>
+		</sequential>
+	</macrodef>
+
+    <!-- =========================================================================================== -->
+
+	<macrodef name="propertyDereference" backtrace="true" uri="http://solenopsis.org/Solenopsis/common" description="Will dereference the property entitled @{property} and store the result to property entitled @{name}">
+		<attribute name="name"/>
+		<attribute name="property"/>
+
+		<sequential>
+			<!--
+				We will dereference the property if its set...if not
+				the value is the empty string...
+			-->
+			<solenopsis-util:ifSet property="@{property}">
+				<solenopsis-util:then>
+					<ant-contrib:var name="@{name}" value="${@{property}}"/>
+				</solenopsis-util:then>
+
+				<solenopsis-util:else>
+					<ant-contrib:var name="@{name}" value=""/>
+				</solenopsis-util:else>
+			</solenopsis-util:ifSet>
+		</sequential>
+	</macrodef>
+
+    <!-- =========================================================================================== -->
+
+	<macrodef name="appendProperty" backtrace="true" uri="http://solenopsis.org/Solenopsis/common" description="Append @{value} to the property named @{name}">
+		<attribute name="name"/>
+		<attribute name="value"/>
+
+		<sequential>
+			<ant-contrib:if>
+				<isset property="@{name}"/>
+				<ant-contrib:then>
+					<ant-contrib:var name="@{name}" value="${@{name}}@{value}"/>
+				</ant-contrib:then>
+				<ant-contrib:else>
+					<ant-contrib:var name="@{name}" value="@{value}"/>
+				</ant-contrib:else>
+			</ant-contrib:if>
+		</sequential>
+	</macrodef>
+
+    <!-- =========================================================================================== -->
+
+	<macrodef name="prependProperty" backtrace="true" uri="http://solenopsis.org/Solenopsis/common" description="Prepend @{value} to the property named @{name}">
+		<attribute name="name"/>
+		<attribute name="value"/>
+
+		<sequential>
+			<ant-contrib:if>
+				<isset property="@{name}"/>
+				<ant-contrib:then>
+					<ant-contrib:var name="@{name}" value="@{value}${@{name}}"/>
+				</ant-contrib:then>
+				<ant-contrib:else>
+					<ant-contrib:var name="@{name}" value="@{value}"/>
+				</ant-contrib:else>
+			</ant-contrib:if>
+		</sequential>
+	</macrodef>
+
+    <!-- =========================================================================================== -->
+
+	<macrodef name="ifEqual" backtrace="true" uri="http://solenopsis.org/Solenopsis/common" description="Compares two arguments to see if they are equal.  If so, the then element is called, otherwise the else element is called">
+		<attribute name="arg1"/>
+		<attribute name="arg2"/>
+
+		<element name="then" optional="false" description="If @{arg1} equals @{arg2}, this block is called"/>
+		<element name="else" optional="true"  description="If @{arg1} not equals @{arg2}, this block is called"/>
+
+		<sequential>
+			<ant-contrib:if>
+				<equals arg1="@{arg1}" arg2="@{arg2}"/>
+
+				<ant-contrib:then>
+					<then/>
+				</ant-contrib:then>
+				<ant-contrib:else>
+					<else/>
+				</ant-contrib:else>
+			</ant-contrib:if>
+		</sequential>
+	</macrodef>
+
+    <!-- =========================================================================================== -->
+
+	<macrodef name="ifNotEqual" backtrace="true" uri="http://solenopsis.org/Solenopsis/common" description="Compares two arguments to see if they are not equal.  If so, the then element is called, otherwise the else element is called">
+		<attribute name="arg1"/>
+		<attribute name="arg2"/>
+
+		<element name="then" optional="false" description="If @{arg1} not equals @{arg2}, this block is called"/>
+		<element name="else" optional="true"  description="If @{arg1} equals @{arg2}, this block is called"/>
+
+		<sequential>
+			<ant-contrib:if>
+				<not>
+					<equals arg1="@{arg1}" arg2="@{arg2}"/>
+				</not>
+
+				<ant-contrib:then>
+					<then/>
+				</ant-contrib:then>
+				<ant-contrib:else>
+					<else/>
+				</ant-contrib:else>
+			</ant-contrib:if>
+		</sequential>
+	</macrodef>
+
+    <!-- =========================================================================================== -->
+
+	<macrodef name="ifContains" backtrace="true" uri="http://solenopsis.org/Solenopsis/common" description="Compares @{string} to see if it contains @{substring}.  If so, the then element is called, otherwise the else element is called">
+		<attribute name="string"/>
+		<attribute name="substring"/>
+
+		<element name="then" optional="false" description="If @{string} contains @{substring}, this block is called"/>
+		<element name="else" optional="true"  description="If @{string} does not contain @{substring}, this block is called"/>
+
+		<sequential>
+			<ant-contrib:if>
+				<contains string="@{string}" substring="@{substring}"/>
+
+				<ant-contrib:then>
+					<then/>
+				</ant-contrib:then>
+				<ant-contrib:else>
+					<else/>
+				</ant-contrib:else>
+			</ant-contrib:if>
+		</sequential>
+	</macrodef>
+
+    <!-- =========================================================================================== -->
+
+	<macrodef name="ifNotContains" backtrace="true" uri="http://solenopsis.org/Solenopsis/common" description="Compares @{string} to see if it does not contain @{substring}.  If so, the then element is called, otherwise the else element is called">
+		<attribute name="string"/>
+		<attribute name="substring"/>
+
+		<element name="then" optional="false" description="If @{string} does not contain @{substring}, this block is called"/>
+		<element name="else" optional="true"  description="If @{string} does contain @{substring}, this block is called"/>
+
+		<sequential>
+			<ant-contrib:if>
+				<not>
+					<contains string="@{string}" substring="@{substring}"/>
+				</not>
+
+				<ant-contrib:then>
+					<then/>
+				</ant-contrib:then>
+				<ant-contrib:else>
+					<else/>
+				</ant-contrib:else>
+			</ant-contrib:if>
+		</sequential>
+	</macrodef>
+
+    <!-- =========================================================================================== -->
+
+	<macrodef name="ifSet" backtrace="true" uri="http://solenopsis.org/Solenopsis/common" description="If @{property} is set, the then element is called, otherwise the else element is called">
+		<attribute name="property"/>
+
+		<element name="then" optional="false" description="If @{property} is set, this block is called"/>
+		<element name="else" optional="true"  description="If @{property} is not set, this block is called"/>
+
+		<sequential>
+			<ant-contrib:if>
+				<isSet property="@{property}"/>
+
+				<ant-contrib:then>
+					<then/>
+				</ant-contrib:then>
+				<ant-contrib:else>
+					<else/>
+				</ant-contrib:else>
+			</ant-contrib:if>
+		</sequential>
+	</macrodef>
+
+    <!-- =========================================================================================== -->
+
+	<macrodef name="ifNotSet" backtrace="true" uri="http://solenopsis.org/Solenopsis/common" description="If @{property} is not set, the then element is called, otherwise the else element is called">
+		<attribute name="property"/>
+
+		<element name="then" optional="false" description="If @{property} is set, this block is called"/>
+		<element name="else" optional="true"  description="If @{property} is not set, this block is called"/>
+
+		<sequential>
+			<ant-contrib:if>
+				<not>
+					<isSet property="@{property}"/>
+				</not>
+
+				<ant-contrib:then>
+					<then/>
+				</ant-contrib:then>
+				<ant-contrib:else>
+					<else/>
+				</ant-contrib:else>
+			</ant-contrib:if>
+		</sequential>
+	</macrodef>
+
+    <!-- =========================================================================================== -->
+
+	<macrodef name="ifDefinedValue" backtrace="true" uri="http://solenopsis.org/Solenopsis/common" description="If @{value} is defined (a string not a property), execute then block, else else block">
+		<attribute name="value"/>
+
+		<element name="then" optional="false" description="If @{property} is set, this block is called"/>
+		<element name="else" optional="true"  description="If @{property} is not set, this block is called"/>
+
+		<sequential>
+			<ant-contrib:if>
+				<not>
+					<matches pattern="\$\{(.+)}" string="@{value}"/>
+				</not>
+
+				<ant-contrib:then>
+					<then/>
+				</ant-contrib:then>
+
+				<ant-contrib:else>
+					<else/>
+				</ant-contrib:else>
+			</ant-contrib:if>
+		</sequential>
+	</macrodef>
+
+    <!-- =========================================================================================== -->
+
+	<macrodef name="ifUndefinedValue" backtrace="true" uri="http://solenopsis.org/Solenopsis/common" description="If @{value} is not defined (a string not a property), execute then block, otherwise execute the else block">
+		<attribute name="value"/>
+
+		<element name="then" optional="false" description="If @{property} is set, this block is called"/>
+		<element name="else" optional="true"  description="If @{property} is not set, this block is called"/>
+
+		<sequential>
+			<ant-contrib:if>
+				<matches pattern="\$\{(.+)}" string="@{value}"/>
+
+				<ant-contrib:then>
+					<then/>
+				</ant-contrib:then>
+
+				<ant-contrib:else>
+					<else/>
+				</ant-contrib:else>
+			</ant-contrib:if>
+		</sequential>
+	</macrodef>
+
+    <!-- =========================================================================================== -->
+
+	<macrodef name="ifFileExists" backtrace="true" uri="http://solenopsis.org/Solenopsis/common" description="If @{file} exists (either dir or file), will run the then element, otherwise the else element">
+		<attribute name="file"/>
+
+		<element name="then" optional="false" description="If @{file} exists, this block is called"/>
+		<element name="else" optional="true"  description="If @{file} does not exist, this block is called"/>
+
+		<sequential>
+			<ant-contrib:if>
+				<available file="@{file}"/>
+
+				<ant-contrib:then>
+					<then/>
+				</ant-contrib:then>
+				<ant-contrib:else>
+					<else/>
+				</ant-contrib:else>
+			</ant-contrib:if>
+		</sequential>
+	</macrodef>
+
+    <!-- =========================================================================================== -->
+
+	<macrodef name="ifFileNotExists" backtrace="true" uri="http://solenopsis.org/Solenopsis/common" description="If @{file} does not exist (either dir or file), will run the then element, otherwise the else element">
+		<attribute name="file"/>
+
+		<element name="then" optional="false" description="If @{file} does not exist, this block is called"/>
+		<element name="else" optional="true"  description="If @{file} exists, this block is called"/>
+
+		<sequential>
+			<ant-contrib:if>
+				<not>
+					<available file="@{file}"/>
+				</not>
+
+				<ant-contrib:then>
+					<then/>
+				</ant-contrib:then>
+				<ant-contrib:else>
+					<else/>
+				</ant-contrib:else>
+			</ant-contrib:if>
+		</sequential>
+	</macrodef>
+
+    <!-- =========================================================================================== -->
+
+	<macrodef name="processList" backtrace="true" uri="http://solenopsis.org/Solenopsis/common" description="Iterate over @{list} and process each value">
+		<attribute name="param"/>
+		<attribute name="list"/>
+		<attribute name="listDelimiter" default=" "/>
+
+		<element name="Process" implicit="yes"  description="Will be called for each element in @{list}"/>
+
+		<sequential>
+			<ant-contrib:for list="@{list}" param="@{param}" delimiter="@{listDelimiter}">
+				<sequential>
+					<Process/>
+				</sequential>
+			</ant-contrib:for>
+		</sequential>
+	</macrodef>
+
+    <!-- =========================================================================================== -->
+
+	<macrodef name="processPropertyAsList" backtrace="true" uri="http://solenopsis.org/Solenopsis/common" description="If property is set, treat the value of the property as a list and process">
+		<attribute name="property" description="The property, if set, whose value will be iterated over for processing"/>
+		<attribute name="param"/>
+		<attribute name="listDelimiter" default=" "/>
+
+		<element name="Process" implicit="yes"  description="Will be called for each element in @{list}"/>
+
+		<sequential>
+			<solenopsis-util:ifSet property="@{property}">
+				<solenopsis-util:then>
+					<solenopsis-util:processList param="@{param}" list="${@{property}}" listDelimiter="@{listDelimiter}">
+						<Process/>
+					</solenopsis-util:processList>
+				</solenopsis-util:then>
+			</solenopsis-util:ifSet>
+		</sequential>
+	</macrodef>
+
+    <!-- =========================================================================================== -->
+
+	<macrodef name="applyPropertyFiles" backtrace="true" uri="http://solenopsis.org/Solenopsis/common" description="Apply property files">
+		<attribute name="description" default="" description="Description of why macrodef is being executed"/>
+
+		<element name="PropertyFiles" implicit="yes" description="The fileset/dirset containing property files"/>
+
+		<sequential>
+            <ant-contrib:for param="applyPropertyFiles.file.PROPERTIES">
+				<PropertyFiles/>
+
+                <sequential>
+                    <property file="@{applyPropertyFiles.file.PROPERTIES}"/>
+                </sequential>
+            </ant-contrib:for>
+		</sequential>
+	</macrodef>
+
+    <!-- =========================================================================================== -->
+
+    <macrodef name="branch" backtrace="true" uri="http://solenopsis.org/Solenopsis/common" description="Compute the branch based upon a root dir, @{root}, and full path, @{fullPath}.  The branch represents the full path minus the root dir.  Please note:  if @{root} does not exist in @{fullPath}, @{property} will be set with an empty value.">
+        <attribute name="property"    description="The property to set with the branch."/>
+        <attribute name="root"        description="The root of the path defined in @{fullPath}."/>
+        <attribute name="fullPath"    description="The absolute path for which @{root} is the root of the path and the branch computed is this path minus the root."/>
+        <attribute name="description" default="" description="Information about this macro call."/>
+
+        <sequential>
+			<!-- Just in case root has too many slashes -->
+			<solenopsis-util:dirName  property="solenopsis-util.branch.ROOT_DIR_NAME"  file="@{root}"/>
+			<solenopsis-util:baseName property="solenopsis-util.branch.ROOT_BASE_NAME" file="@{root}"/>
+
+			<solenopsis-util:property  name="solenopsis-util.branch.ROOT" value="${solenopsis-util.branch.ROOT_DIR_NAME}${file.separator}${solenopsis-util.branch.ROOT_BASE_NAME}"/>
+
+            <!-- 
+                Grab data past @{root} in @{fullPath}.  
+            -->
+			<ant-contrib:propertyregex property="solenopsis-util.branch.BRANCH" override="true" input="@{fullPath}" regexp="${solenopsis-util.branch.ROOT}(.*)" select="\1" description="Parse out the branch from the value contained in @{root}"/>
+
+            <!-- 
+                Remove the leading file separator (if it is there).  If it is not there,
+                simply use the value as is.
+            -->
+            <ant-contrib:propertyregex property="@{property}" override="true" input="${solenopsis-util.branch.BRANCH}" regexp="^[${file.separator}](.*)" replace="\1" defaultValue="${solenopsis-util.branch.BRANCH}" description="Remove the leading file separator if its there"/>
+        </sequential>
+    </macrodef>
+
+    <!-- =========================================================================================== -->
+
+	<macrodef name="copyFiles" backtrace="true" uri="http://solenopsis.org/Solenopsis/common" description="Copy files from one directory to another.  However, do so maintaining dir structure">
+		<attribute name="fileList"  description="List of files to copy"/>
+		<attribute name="root"      description="The root directory from fileList"/>
+		<attribute name="destDir"   description="The directory to copy to"/>
+		<attribute name="delimiter" default="," description="The delimiter separating fileList"/>
+
+		<sequential>
+			<solenopsis-util:processList param="copyFiles.FILE"  list="@{fileList}" listDelimiter="@{delimiter}">
+				<solenopsis-util:branch property="copyFiles.BRANCH" root="@{root}" fullPath="@{copyFiles.FILE}"/>
+				<solenopsis-util:relativeDirName property="copyFiles.DIR" file="${copyFiles.BRANCH}"/>
+
+				<mkdir dir="@{destDir}/${copyFiles.DIR}"/>
+
+				<solenopsis-util:ifFileExists file="@{copyFiles.FILE}">
+					<solenopsis-util:then>
+						<copy file="@{copyFiles.FILE}" todir="@{destDir}/${copyFiles.DIR}"/>
+					</solenopsis-util:then>
+				</solenopsis-util:ifFileExists>
+			</solenopsis-util:processList>
+		</sequential>
+	</macrodef>
+
+    <!-- =========================================================================================== -->
+
+	<macrodef name="dirDiffMissing" backtrace="true" uri="http://solenopsis.org/Solenopsis/common" description="Compare @{dir1} and @{dir2}.  Store the files not found in @{dir1} that are in @{dir2} in to property @{property}.">
+		<attribute name="property"/>
+		<attribute name="dir1"/>
+		<attribute name="dir2"/>
+		<attribute name="includes"  default=""/>
+		<attribute name="excludes"  default=""/>
+		<attribute name="delimiter" default=" "/>
+
+		<element name="Process" optional="true" implicit="yes" description="If anything is missing, execute the contents of this element"/>
+
+		<sequential>
+			<solenopsis-util:property name="@{property}"              value="" description="Reset the value so if there are no files missing, the value of the property is empty"/>
+			<solenopsis-util:property name="dirDiffMissing.delimiter" value=""/>
+
+			<!--
+				Only examine @{dir2} if that directory exists
+			-->
+			<ant-contrib:if>
+				<available file="@{dir2}"/>
+
+				<ant-contrib:then>
+					<ant-contrib:for param="solenopsis-util.dirDiffMissing.fileName">
+						<fileset dir="@{dir2}" includes="@{includes}" excludes="@{excludes}"/>
+
+						<sequential>
+							<solenopsis-util:branch property="solenopsis-util.dirDiffMissing.branch" root="@{dir2}" fullPath="@{solenopsis-util.dirDiffMissing.fileName}"/>
+
+							<ant-contrib:if>
+								<not>
+									<available file="@{dir1}/${solenopsis-util.dirDiffMissing.branch}"/>
+								</not>
+
+								<ant-contrib:then>
+									<solenopsis-util:appendProperty name="@{property}" value="${dirDiffMissing.delimiter}${solenopsis-util.dirDiffMissing.branch}"/>
+									<solenopsis-util:property name="dirDiffMissing.delimiter" value="@{delimiter}"/>
+								</ant-contrib:then>
+							</ant-contrib:if>
+						</sequential>
+					</ant-contrib:for>
+				</ant-contrib:then>
+			</ant-contrib:if>
+
+			<!--
+				Execute the Process element if there were any missing files...
+			-->
+			<solenopsis-util:ifNotEqual arg1="${@{property}}" arg2="">
+				<solenopsis-util:then>
+					<Process/>
+				</solenopsis-util:then>
+			</solenopsis-util:ifNotEqual>
+		</sequential>
+	</macrodef>
+
+    <!-- =========================================================================================== -->
+
+	<macrodef name="listDiffMissing" backtrace="true" uri="http://solenopsis.org/Solenopsis/common" description="Compare @{list1} and @{list2}.  Store the values not found in @{list1} that are in @{list2} in to property @{property}.">
+		<attribute name="property"/>
+		<attribute name="list1"/>
+		<attribute name="list2"/>
+		<attribute name="delimiter" default=" "/>
+
+		<element name="Process" optional="true" implicit="yes" description="If anything is missing, execute the contents of this element"/>
+
+		<sequential>
+			<solenopsis-util:property name="@{property}" value="" description="Reset the value so if there are no missing items"/>
+			<solenopsis-util:property name="listDiffMissing.DELIMITER" value=""/>
+
+			<!--
+				Iterate over the second list.  Inside we will iterate over the
+				first list...if we find the value from the second list in the
+				first list, we will not add it...
+			-->
+			<solenopsis-util:processList param="listDiffMissing.LIST2-VAL" list="@{list2}" listDelimiter="@{delimiter}">
+				<!--
+					Remember the value from list2.  If we find it in list1, we will set
+					this property to empty.  After iterating over list1, if this property
+					is not empty we know it can be added...
+				-->
+				<solenopsis-util:property name="listDiffMissing.TO-FIND" value="@{listDiffMissing.LIST2-VAL}"/>
+
+				<!--
+					Iterate over list1.  If we find listDiffMissing.TO-FIND in list1, we
+					won't add it.
+				-->
+				<solenopsis-util:processList param="listDiffMissing.LIST1-VAL" list="@{list1}" listDelimiter="@{delimiter}">
+					<solenopsis-util:ifEqual arg1="@{listDiffMissing.LIST2-VAL}" arg2="@{listDiffMissing.LIST1-VAL}">
+						<solenopsis-util:then>
+							<!--
+								Value found...reset the property...it won't be added...
+							-->
+							<solenopsis-util:property name="listDiffMissing.TO-FIND" value=""/>
+						</solenopsis-util:then>
+					</solenopsis-util:ifEqual>
+				</solenopsis-util:processList>
+
+				<!--
+					The property will be empty if found.  If not empty,
+					we can add...
+				-->
+				<solenopsis-util:ifNotEqual arg1="${listDiffMissing.TO-FIND}" arg2="">
+					<solenopsis-util:then>
+						<solenopsis-util:appendProperty name="@{property}" value="${listDiffMissing.DELIMITER}${listDiffMissing.TO-FIND}"/>
+						<solenopsis-util:property name="listDiffMissing.DELIMITER" value="@{delimiter}"/>
+					</solenopsis-util:then>
+				</solenopsis-util:ifNotEqual>
+			</solenopsis-util:processList>
+
+			<!--
+				Execute the Process element if there were any missing files...
+			-->
+			<solenopsis-util:ifNotEqual arg1="${@{property}}" arg2="">
+				<solenopsis-util:then>
+					<Process/>
+				</solenopsis-util:then>
+			</solenopsis-util:ifNotEqual>
+		</sequential>
+	</macrodef>
+
+    <!-- =========================================================================================== -->
+
+	<!--
+		Starting at dir, iterate over all files replacing all "variables" denoted to the properties being overridden...
+
+		It is expected that the properties will be in the form of:
+			@{prefix}.replace.[some tag].name				The name of the variable to replace
+			@{prefix}.replace.[some tag].implicit			The name of the property to use for replacement - if set
+			@{prefix}.replace.[some tag].default			If implicit is not set, use this as a default.
+
+		Example:
+			solenposis_replace.replace.siteAdmin.name     = SiteAdmin
+			solenposis_replace.replace.siteAdmin.implicit = myfoo@solenopsis.org
+			solenposis_replace.replace.siteAdmin.default  = myBackup@solenopsis.org
+
+		It is assumed that all tags are unique and will not be duped...
+	-->
+	<macrodef name="replaceVariables" backtrace="true" uri="http://solenopsis.org/Solenopsis/common" description="Iterate over files replacing variables">
+		<attribute name="dir"         description="The directory to start in"/>
+		<attribute name="prefix"      description="The property prefix to iterate over properties who have this prefix to perform replacement"/>
+		<attribute name="description" default="" description="Provide comment about calling this macrodef"/>
+
+		<sequential>
+			<ant-contrib:var name="replaceVariables.RAW_LIST" unset="true"/>
+			<ant-contrib:propertyselector property="replaceVariables.RAW_LIST" delimiter="," match="@{prefix}.replace\.(.+)\.(.+)" select="\1"/>
+
+			<ant-contrib:sortlist property="replaceVariables.LIST" value="${replaceVariables.RAW_LIST}"/>
+
+			<ant-contrib:var name="replaceVariables.LAST" value=""/>
+			<ant-contrib:var name="replaceVariables.UNIQUE_LIST" value=""/>
+
+			<solenopsis-util:processList param="replaceVariables.TAG" list="${replaceVariables.LIST}" listDelimiter=",">
+				<solenopsis-util:ifNotEqual arg1="${replaceVariables.LAST}" arg2="@{replaceVariables.TAG}">
+					<solenopsis-util:then>
+						<solenopsis-util:appendProperty name="replaceVariables.UNIQUE_LIST" value="@{replaceVariables.TAG},"/>
+					</solenopsis-util:then>
+				</solenopsis-util:ifNotEqual>
+
+				<ant-contrib:var name="replaceVariables.LAST" value="@{replaceVariables.TAG}"/>
+			</solenopsis-util:processList>
+
+			<!--
+				Iterate over the list making changes...
+			-->
+			<solenopsis-util:processList param="replaceVariables.TAG" list="${replaceVariables.UNIQUE_LIST}" listDelimiter=",">
+				<solenopsis-util:ifSet property="@{prefix}.replace.@{replaceVariables.TAG}.name">
+					<solenopsis-util:then>
+						<solenopsis-util:propertyDereference name="replaceVariables.NAME" property="@{prefix}.replace.@{replaceVariables.TAG}.name"/>
+
+						<solenopsis-util:ifSet property="@{prefix}.replace.@{replaceVariables.TAG}.implicit">
+							<solenopsis-util:then>
+								<solenopsis-util:propertyDereference name="replaceVariables.IMPLICIT_VALUE" property="@{prefix}.replace.@{replaceVariables.TAG}.implicit"/>
+							</solenopsis-util:then>
+						</solenopsis-util:ifSet>
+
+						<solenopsis-util:ifSet property="@{prefix}.replace.@{replaceVariables.TAG}.default">
+							<solenopsis-util:then>
+								<solenopsis-util:propertyDereference name="replaceVariables.DEFAULT_VALUE" property="@{prefix}.replace.@{replaceVariables.TAG}.default"/>
+							</solenopsis-util:then>
+						</solenopsis-util:ifSet>
+
+						<solenopsis-util:ifDefinedValue value="${replaceVariables.DEFAULT_VALUE}">
+							<solenopsis-util:then>
+								<solenopsis-util:property name="replaceVariables.VALUE" value="${replaceVariables.DEFAULT_VALUE}"/>
+							</solenopsis-util:then>
+						</solenopsis-util:ifDefinedValue>
+
+						<solenopsis-util:ifDefinedValue value="${replaceVariables.IMPLICIT_VALUE}">
+							<solenopsis-util:then>
+								<solenopsis-util:property name="replaceVariables.VALUE" value="${replaceVariables.IMPLICIT_VALUE}"/>
+							</solenopsis-util:then>
+						</solenopsis-util:ifDefinedValue>
+
+						<solenopsis-util:ifSet property="replaceVariables.VALUE">
+							<solenopsis-util:then>
+								<solenopsis-util:property name="replaceVariables.TOKEN" value="${replaceVariables.NAME}"/>
+								<solenopsis-util:prependProperty name="replaceVariables.TOKEN" value="{"/>
+								<solenopsis-util:prependProperty name="replaceVariables.TOKEN" value="@"/>
+								<solenopsis-util:appendProperty name="replaceVariables.TOKEN" value="}"/>
+								<replace dir="@{dir}" includes="*/**" token="${replaceVariables.TOKEN}" value="${replaceVariables.VALUE}"/>
+
+								<!--
+									ONLY GOOD IN ANT 1.7.1+!!!
+
+								<replaceregexp match="\$\{${replaceVariables.NAME}}" replace="${replaceVariables.VALUE}">
+									<fileset dir="@{dir}">
+										<include name="**/**"/>
+									</fileset>
+								</replaceregexp>
+								-->
+							</solenopsis-util:then>
+
+							<solenopsis-util:else>
+								<echo message="Warning - no replacement value found for [@{prefix}.replace.@{replaceVariables.TAG}.name] (either implicit or default) = skipping!"/>
+							</solenopsis-util:else>
+						</solenopsis-util:ifSet>
+					</solenopsis-util:then>
+
+					<solenopsis-util:else>
+						<echo message="Warning - cannot find a property for [${replaceVariables.VAR_NAME}] - skipping!"/>
+					</solenopsis-util:else>
+				</solenopsis-util:ifSet>
+			</solenopsis-util:processList>
+		</sequential>
+	</macrodef>
+
+    <!-- =========================================================================================== -->
+
+	<scriptdef name="git-status" uri="http://solenopsis.org/Solenopsis/common" language="beanshell" description="Compute git status on @{dir}, storing the changed files in @{property}">
+		<classpath>
+			<fileset dir="${solenopsis.lib.HOME}" includes="*.jar"/>
+		</classpath>
+
+		<attribute name="addProperty"/>
+		<attribute name="modProperty"/>
+		<attribute name="delProperty"/>
+		<attribute name="ignorePattern"/>
+		<attribute name="dir"/>
+		<attribute name="delimiter"/>
+
+		<![CDATA[
+			import org.eclipse.jgit.api.Status;
+			import org.eclipse.jgit.lib.IndexDiff;
+			import org.eclipse.jgit.storage.file.FileRepository;
+			import org.eclipse.jgit.treewalk.FileTreeIterator;
+			import java.io.File;
+			import java.util.Set;
+
+			File findGitDir(File dir) {
+				if(null == dir) {
+					return null;
+				}
+
+				File gitDir = new File(dir, ".git");
+
+				if (gitDir.exists()) {
+					return gitDir;
+				}
+
+				return findGitDir(dir.getParentFile());
+			}
+
+			String buildValues(String baseDir, String delimiter, String ignorePattern, Set values) {
+				StringBuilder sb = new StringBuilder();
+
+				for(String value : values) {
+					if(!value.endsWith(ignorePattern)) {
+						sb.append("".equals(baseDir) ?  value : value.substring(baseDir.length())).append(delimiter);
+					}
+				}
+
+				return sb.toString();
+			}
+
+			String computeBase(File dir, File gitDir) {
+				if (!dir.equals(gitDir)) {
+					return dir.getPath().substring(gitDir.getParentFile().getPath().length() + 1) + System.getProperty("file.separator");
+				}
+
+				return "";
+			}
+
+			File dir = new File(attributes.get("dir"));
+
+			File gitDir = findGitDir(dir);
+
+			if (null == gitDir) {
+				return;
+			}
+
+			FileRepository repository = new FileRepository(gitDir);
+			IndexDiff indexDiff = new IndexDiff(repository, "HEAD", new FileTreeIterator(repository));
+
+			indexDiff.diff();
+
+			Status status = new Status(indexDiff);
+
+			String baseDir = computeBase(dir, gitDir);
+
+			project.setProperty(attributes.get("addproperty"), buildValues(baseDir, attributes.get("delimiter"), attributes.get("ignorepattern"), status.getUntracked()));
+			project.setProperty(attributes.get("modproperty"), buildValues(baseDir, attributes.get("delimiter"), attributes.get("ignorepattern"), status.getModified()));
+			project.setProperty(attributes.get("delproperty"), buildValues(baseDir, attributes.get("delimiter"), attributes.get("ignorepattern"), status.getMissing()));
+		]]>
+	</scriptdef>
+
+    <!-- =========================================================================================== -->
+
+	<macrodef name="xmlStartElement" backtrace="true" uri="http://solenopsis.org/Solenopsis/common" description="Create an XML start element named @{name} and store in @{property}">
+		<attribute name="property"/>
+		<attribute name="name"/>
+		<attribute name="namespace" default="" description="Namespace"/>
+		<attribute name="attributes" default="" description="Additional attributes"/>
+		<attribute name="prefix" default="" description="The prefix to emit pre XML"/>
+		<attribute name="elementDelimiter" default=""/>
+
+		<sequential>
+			<solenopsis-util:appendProperty name="@{property}" value="@{prefix}${solenopsis-util.LESS_THAN}@{name}"/>
+
+			<solenopsis-util:ifNotEqual arg1="@{namespace}" arg2="">
+				<solenopsis-util:then>
+					<solenopsis-util:appendProperty name="@{property}" value=" xmlns=&quot;@{namespace}&quot;"/>
+				</solenopsis-util:then>
+			</solenopsis-util:ifNotEqual>
+
+			<solenopsis-util:ifNotEqual arg1="@{attributes}" arg2="">
+				<solenopsis-util:then>
+					<solenopsis-util:appendProperty name="@{property}" value=" @{attributes}"/>
+				</solenopsis-util:then>
+			</solenopsis-util:ifNotEqual>
+
+			<solenopsis-util:appendProperty name="@{property}" value="${solenopsis-util.GREATER_THAN}@{elementDelimiter}"/>
+		</sequential>
+	</macrodef>
+
+    <!-- =========================================================================================== -->
+
+	<macrodef name="xmlEndElement" backtrace="true" uri="http://solenopsis.org/Solenopsis/common" description="Create an XML end element named @{name} and store in @{property}">
+		<attribute name="property"/>
+		<attribute name="name"/>
+		<attribute name="prefix" default="" description="The prefix to emit pre XML"/>
+		<attribute name="elementDelimiter" default="${line.separator}"/>
+
+		<sequential>
+			<solenopsis-util:appendProperty name="@{property}" value="@{prefix}${solenopsis-util.LESS_THAN}/@{name}${solenopsis-util.GREATER_THAN}@{elementDelimiter}"/>
+		</sequential>
+	</macrodef>
+
+    <!-- =========================================================================================== -->
+
+	<macrodef name="xmlElement" backtrace="true" uri="http://solenopsis.org/Solenopsis/common" description="Create an XML element whose name is @{name} and whose value is @{value} - store the element in a property name @{property}">
+		<attribute name="property"/>
+		<attribute name="name"/>
+		<attribute name="value"/>
+		<attribute name="namespace" default="" description="Namespace"/>
+		<attribute name="attributes" default="" description="Additional attributes"/>
+		<attribute name="prefix" default="" description="The prefix to emit pre XML"/>
+		<attribute name="elementDelimiter" default="${line.separator}"/>
+
+		<sequential>
+			<solenopsis-util:xmlStartElement property="@{property}" name="@{name}" namespace="@{namespace}" attributes="@{attributes}" prefix="@{prefix}"/>
+			<solenopsis-util:appendProperty  name="@{property}"     value="@{value}"/>
+			<solenopsis-util:xmlEndElement   property="@{property}" name="@{name}" elementDelimiter="@{elementDelimiter}"/>
+		</sequential>
+	</macrodef>
+
+    <!-- =========================================================================================== -->
+
+	<macrodef name="xmlElementList" backtrace="true" uri="http://solenopsis.org/Solenopsis/common" description="Generate XML element(s) each with a name of @{name}.  The value for each @{name} element is found in the @{valueDelimiter} delimited list @{values}.">
+		<attribute name="property" description="Property to store the XML members element"/>
+		<attribute name="name"     description="The name of the element"/>
+		<attribute name="values"   description="A space delimited list of values that will be used for each members element"/>
+		<attribute name="valueDelimiter"   default=" "                 description="The delimiter between each value found in @{values}"/>
+		<attribute name="namespace"        default=""                  description="Namespace"/>
+		<attribute name="prefix"           default=""                  description="The prefix to emit pre XML"/>
+		<attribute name="elementDelimiter" default="${line.separator}" description="The delimiter to use between elements"/>
+
+		<sequential>
+			<ant-contrib:for list="@{values}" param="elementValue" delimiter="@{valueDelimiter}">
+				<sequential>
+					<solenopsis-util:xmlElement property="@{property}" name="@{name}" value="@{elementValue}" namespace="@{namespace}" prefix="@{prefix}" elementDelimiter="@{elementDelimiter}"/>
+				</sequential>
+			</ant-contrib:for>
+		</sequential>
+	</macrodef>
+
+    <!-- =========================================================================================== -->
+
+	<macrodef name="xmlElementFiles" backtrace="true" uri="http://solenopsis.org/Solenopsis/common" description="Generate XML element(s) each with a name of @{name}.  The value for each contained in the contents of the Files element.">
+		<attribute name="property" description="Property to store the XML members element"/>
+		<attribute name="name"     description="The name of the element"/>
+		<attribute name="suffix"           default=""                  description="The suffix to remove"/>
+		<attribute name="namespace"        default=""                  description="Namespace"/>
+		<attribute name="prefix"           default=""                  description="The prefix to emit pre XML"/>
+		<attribute name="elementDelimiter" default="${line.separator}" description="The delimiter to use between elements"/>
+
+		<element name="Files" implicit="yes" description="Represents a path, fielset, or dirset"/>
+
+		<sequential>
+			<ant-contrib:for param="elementValue">
+				<Files/>
+				<sequential>
+					<solenopsis-util:baseName property="xmlElementFiles.fileName" file="@{elementValue}" suffix="@{suffix}"/>
+					<solenopsis-util:xmlElement property="@{property}" name="@{name}" value="${xmlElementFiles.fileName}" namespace="@{namespace}" prefix="@{prefix}" elementDelimiter="@{elementDelimiter}"/>
+				</sequential>
+			</ant-contrib:for>
+		</sequential>
+	</macrodef>
+
+    <!-- =========================================================================================== -->
+
+	<macrodef name="xmlElementContainer" backtrace="true" uri="http://solenopsis.org/Solenopsis/common" description="Create an XML element whose name is @{name} - store the element in a property name @{property}.  Child elements can be created via the implicit element child">
+		<attribute name="property"/>
+		<attribute name="name"/>
+		<attribute name="namespace"        default=""  description="Namespace"/>
+		<attribute name="prefix"           default=""  description="The prefix to emit pre XML"/>
+		<attribute name="elementDelimiter" default="${line.separator}"/>
+
+		<element name="Children" optional="true" implicit="yes" description="Any child XML elements"/>
+
+		<sequential>
+			<solenopsis-util:xmlStartElement property="@{property}" name="@{name}" namespace="@{namespace}" prefix="@{prefix}" elementDelimiter="@{elementDelimiter}"/>
+				<Children/>
+				<solenopsis-util:xmlEndElement property="@{property}" name="@{name}" prefix="@{prefix}" elementDelimiter="@{elementDelimiter}"/>
+		</sequential>
+	</macrodef>
+
+    <!-- =========================================================================================== -->
+
+	<macrodef name="findFilesContaining" backTrace="true" backtrace="true" uri="http://solenopsis.org/Solenopsis/common" description="Find all files containing a value">
+		<attribute name="dir"         description="The directory to look for files containing a value"/>
+		<attribute name="property"    description = "Property name to hold all the file names that contain a value"/>
+		<attribute name="value"       description = "The value to find within the files"/>
+		<attribute name="delimiter"   default="," description="Delimiter to use between file names"/>
+		<attribute name="description" default="" description="Comment regarding calling this macrodef"/>
+
+		<element name="Filter" optional="true" implicit="yes" description="Fileset child elements like include or exclude"/>
+
+		<sequential>
+			<ant-contrib:for param="findFilesContaining.FILE">
+				<fileset dir="@{dir}">
+					<Filter/>
+				</fileset>
+
+				<sequential>
+					<ant-contrib:var name="findFilesContaining.CONTENTS" unset="true"/>
+					<loadfile property="findFilesContaining.CONTENTS" srcFile="@{findFilesContaining.FILE}"/>
+
+					<solenopsis-util:ifContains string="${findFilesContaining.CONTENTS}" substring="@{value}">
+						<solenopsis-util:then>
+							<solenopsis-util:appendProperty name="@{property}" value="@{findFilesContaining.FILE}@{delimiter}"/>
+						</solenopsis-util:then>
+					</solenopsis-util:ifContains>
+				</sequential>
+			</ant-contrib:for>
+		</sequential>
+	</macrodef>
+
+    <!-- =========================================================================================== -->
+
+	<macrodef name="baseName-findFilesContaining" backTrace="true" backtrace="true" uri="http://solenopsis.org/Solenopsis/common" description="Find all files containing a value storing the the base name of the files">
+		<attribute name="dir"         description="The directory to look for files containing a value"/>
+		<attribute name="property"    description = "Property name to hold all the file names that contain a value"/>
+		<attribute name="value"       description = "The value to find within the files"/>
+		<attribute name="suffix"      default=""  description = "The suffix to remove"/>
+		<attribute name="delimiter"   default="," description="Delimiter to use between file names"/>
+		<attribute name="description" default=""  description="Comment regarding calling this macrodef"/>
+
+		<element name="Filter" optional="true" implicit="yes" description="Fileset child elements like include or exclude"/>
+
+		<sequential>
+			<solenopsis-util:findFilesContaining dir="@{dir}" property="baseName-findFilesContaining.FILES" value="@{value}" delimiter="@{delimiter}">
+				<Filter/>
+			</solenopsis-util:findFilesContaining>
+
+			<solenopsis-util:processList param="baseName-findFilesContaining.FILE" list="${baseName-findFilesContaining.FILES}" listDelimiter="@{delimiter}">
+				<solenopsis-util:baseName property="baseName-findFilesContaining.FILE_NAME" file="@{baseName-findFilesContaining.FILE}" suffix="@{suffix}"/>
+
+				<solenopsis-util:appendProperty name="@{property}" value="${baseName-findFilesContaining.FILE_NAME}@{delimiter}"/>
+			</solenopsis-util:processList>
+		</sequential>
+	</macrodef>
+	
+    <!-- =========================================================================================== -->
+
+	<macrodef name="generateUniqueValue" backtrace="true" uri="http://solenopsis.org/Solenopsis/common" description="Generate a unique value">
+		<attribute name="property" description="The property to hold the value"/>
+		<attribute name="prepend"     default="" description="The string to prepend"/>
+		<attribute name="append"      default="" description="The string to append"/>
+		<attribute name="description" default="" description="Comment about calling this macrodef"/>
+
+		<sequential>
+			<local name="TIME_STAMP"/>
+
+			<tstamp>
+				<format property="TIME_STAMP" pattern="yyyy-MM-DD-HH-mm-ss-SSSS"/>
+			</tstamp>
+
+			<ant-contrib:var name="@{property}" value="@{prepend}${TIME_STAMP}@{append}"/>
+		</sequential>
+	</macrodef>
+
+    <!-- =========================================================================================== -->
+
+	<macrodef name="resetPropertiesByPattern" backtrace="true" uri="http://solenopsis.org/Solenopsis/common" description="Reset the properties whose name matches the pattern @{pattern}">
+		<attribute name="pattern" description="The pattern for property names to use when resetting properties"/>
+		<attribute name="description" default="" description="Comment about calling this macrodef"/>
+
+		<sequential>
+			<ant-contrib:propertyselector property="resetPropertiesByPattern.PROPERTY_NAME_LIST" delimiter="," match="@{pattern}"/>
+
+			<ant-contrib:for list="${resetPropertiesByPattern.PROPERTY_NAME_LIST}" param="resetPropertiesByPattern.PROPERTY-NAME">
+				<sequential>
+					<ant-contrib:var name="@{resetPropertiesByPattern.PROPERTY-NAME}" unset="true"/>
+				</sequential>
+			</ant-contrib:for>
+		</sequential>
+	</macrodef>
+
+    <!-- =========================================================================================== -->
+
+	<macrodef name="resetPropertiesByPrefix" backtrace="true" uri="http://solenopsis.org/Solenopsis/common" description="Reset the properties whose name starts with @{prefix}">
+		<attribute name="prefix" description="The property prefix to reset"/>
+		<attribute name="description" default="" description="Comment about calling this macrodef"/>
+
+		<sequential>
+			<util:resetPropertiesByPattern pattern="@{prefix}(.)+"/>
+		</sequential>
+	</macrodef>
+
+    <!-- =========================================================================================== -->
+
+	<macrodef name="loadPropertiesFromFile" backtrace="true" uri="http://solenopsis.org/Solenopsis/common" description="Load properties from a file">
+		<attribute name="prefix" description="The prefix to use for each property loaded"/>
+		<attribute name="file"   description="The file to use to load properties"/>
+		<attribute name="description" default="" description="Comment about calling this macrodef"/>
+
+		<sequential>
+			<util:resetPropertiesByPrefix prefix="@{prefix}"/>
+			<loadproperties prefix="@{prefix}" srcFile="@{file}"/>
+		</sequential>
+	</macrodef>
+
+    <!-- =========================================================================================== -->
+
+	<macrodef name="ensureDir" backtrace="true" uri="http://solenopsis.org/Solenopsis/common" description="Ensure a dir exists for @{file}">
+		<attribute name="file"/>
+
+		<sequential>
+			<!--
+				Only make parent dirs if a file is passed in...
+			-->
+			<util:ifNotEqual arg1="" arg2="@{file}">
+				<util:then>
+					<local name="DIR"/>
+					
+					<dirname property="DIR" file="@{file}"/>
+
+					<mkdir dir="${DIR}"/>
+				</util:then>
+			</util:ifNotEqual>
+		</sequential>
+	</macrodef>
+
+    <!-- =========================================================================================== -->
+
+</project>
