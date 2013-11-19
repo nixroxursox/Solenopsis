@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.logging.LogManager;
 import org.flossware.util.properties.impl.FilePropertiesMgr;
 import org.solenopsis.lasius.credentials.Credentials;
@@ -52,47 +53,44 @@ public class Main {
         return retVal;
     }
 
+    private static double computePercentage(final ApexCodeCoverage coverage) {
+        return ((double) coverage.getCoverage().getCoveredLines().size() / (coverage.getCoverage().getCoveredLines().size() + coverage.getCoverage().getUncoveredLines().size())) * 100;
+    }
+
     private static void emitTooling(final String wsdlType, Credentials creds) throws Exception {
         final SforceServicePortType port = SalesforceWebServiceUtil.createToolingPort(creds);
 
         final Map<String, ApexClass> classMap = getApexClasses(port);
         final Map<String, ApexTrigger> triggerMap = getApexTriggers(port);
 
-        final List<String> classList = new LinkedList<String>();
-        final List<String> triggerList = new LinkedList<String>();
+        final Map<String, ApexCodeCoverage> classList = new TreeMap<>();
+        final Map<String, ApexCodeCoverage> triggerList = new TreeMap<>();
 
         final QueryResult queryResult = port.query(SOQL_COVERAGE);
 
         for(final SObject sobj : queryResult.getRecords()) {
             ApexCodeCoverage coverage = (ApexCodeCoverage) sobj;
 
-            String name = "";
-
-            List<String> toUse = null;
-
             if (classMap.containsKey(coverage.getApexClassOrTriggerId())) {
-                name = classMap.get(coverage.getApexClassOrTriggerId()).getName();
-                toUse = classList;
+
+                classList.put(classMap.get(coverage.getApexClassOrTriggerId()).getName(), coverage);
             } else if (triggerMap.containsKey(coverage.getApexClassOrTriggerId())) {
-                name = triggerMap.get(coverage.getApexClassOrTriggerId()).getName();
-                toUse = triggerList;
+                triggerList.put(triggerMap.get(coverage.getApexClassOrTriggerId()).getName(), coverage);
             }
-
-            double cvg = ((double) coverage.getCoverage().getCoveredLines().size() / (coverage.getCoverage().getCoveredLines().size() + coverage.getCoverage().getUncoveredLines().size())) * 10;
-
-            toUse.add(name + " " + cvg);
         }
 
         System.out.println("Triggers:");
 
-        for (final String str : triggerList) {
-            System.out.println("    " + str);
+        for (final String str : triggerList.keySet()) {
+            System.out.printf("    %-40s%13.2f", str, computePercentage(triggerList.get(str)));
+            System.out.println("%");
         }
 
         System.out.println("\nClasses:");
 
-        for (final String str : classList) {
-            System.out.println("    " + str);
+        for (final String str : classList.keySet()) {
+            System.out.printf("    %-40s%13.2f", str, computePercentage(classList.get(str)));
+            System.out.println("%");
         }
     }
 
