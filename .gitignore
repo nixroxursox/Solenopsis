@@ -4,3 +4,4 @@
 *.pyc
 dist
 ant/lib/ant-salesforce.jar
+/tooling/target/

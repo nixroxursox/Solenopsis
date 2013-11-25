@@ -1,8 +1,6 @@
 package org.solenopsis.tooling.main;
 
 import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.logging.LogManager;
@@ -10,10 +8,8 @@ import org.flossware.util.properties.impl.FilePropertiesMgr;
 import org.solenopsis.lasius.credentials.Credentials;
 import org.solenopsis.lasius.credentials.impl.PropertiesCredentials;
 import org.solenopsis.lasius.sforce.wsimport.tooling.ApexClass;
-import org.solenopsis.lasius.sforce.wsimport.tooling.ApexCodeCoverage;
 import org.solenopsis.lasius.sforce.wsimport.tooling.ApexCodeCoverageAggregate;
 import org.solenopsis.lasius.sforce.wsimport.tooling.ApexTrigger;
-import org.solenopsis.lasius.sforce.wsimport.tooling.Coverage;
 import org.solenopsis.lasius.sforce.wsimport.tooling.QueryResult;
 import org.solenopsis.lasius.sforce.wsimport.tooling.SObject;
 import org.solenopsis.lasius.sforce.wsimport.tooling.SforceServicePortType;
@@ -88,9 +84,6 @@ public class Main {
         return ((double) coverage.getNumLinesCovered() / (coverage.getNumLinesCovered() + coverage.getNumLinesUncovered())) * 100;
     }
     private static void emitTooling(final String wsdlType, Credentials creds) throws Exception {
-
-        System.out.println("--->" + creds.getApiVersion());
-
         final SforceServicePortType port = SalesforceWebServiceUtil.createToolingPort(creds);
 
         final Map<String, ApexClass> classMap = getApexClasses(port);
@@ -106,7 +99,7 @@ public class Main {
                 ApexCodeCoverageAggregate coverage = (ApexCodeCoverageAggregate) sobj;
 
 
-                classList.put(classMap.get(id).getName(),String.format("%-40s%13.2f", classMap.get(id).getName(), computePercentage(coverage)));
+                classList.put(classMap.get(id).getName(),String.format("%-40s%13d%13d%13.2f", classMap.get(id).getName(), coverage.getNumLinesCovered(), coverage.getNumLinesUncovered(), computePercentage(coverage)));
             }
         }
 
@@ -117,12 +110,13 @@ public class Main {
                 ApexCodeCoverageAggregate coverage = (ApexCodeCoverageAggregate) sobj;
 
 
-                triggerList.put(triggerMap.get(id).getName(),String.format("%-40s%13.2f", triggerMap.get(id).getName(), computePercentage(coverage)));
+                triggerList.put(triggerMap.get(id).getName(),String.format("%-40s%13d%13d%13.2f", triggerMap.get(id).getName(), coverage.getNumLinesCovered(), coverage.getNumLinesUncovered(), computePercentage(coverage)));
             }
         }
 
         System.out.println("\n\n");
         System.out.println("Class Coverage:");
+        System.out.printf("    %40s%13s%13s%15s", " ", "Covered", "Uncovered", "Percent\n");
 
         for (final String str : classList.values()) {
             System.out.println("    " + str + "%");
@@ -130,6 +124,7 @@ public class Main {
 
         System.out.println("\n\n");
         System.out.println("Trigger Coverage:");
+        System.out.printf("    %40s%13s%13s%15s", " ", "Covered", "Uncovered", "Percent\n");
 
         for (final String str : triggerList.values()) {
             System.out.println("    " + str + "%");
@@ -140,6 +135,7 @@ public class Main {
         LogManager.getLogManager().readConfiguration(Main.class.getResourceAsStream("/logging.properties"));
 
         final String env = "test-dev.properties";
+//        final String env = "qa.properties";
 //        final String env = "dev.properties";
 
         emitTooling("Partner WSDL", new PropertiesCredentials(new FilePropertiesMgr(System.getProperty("user.home") + "/.solenopsis/credentials/" + env)));
