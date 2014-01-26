@@ -1,6 +1,8 @@
 package org.solenopsis.tooling.main;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.logging.LogManager;
@@ -11,11 +13,20 @@ import org.solenopsis.lasius.wsimport.session.mgr.impl.SingleSessionMgr;
 import org.solenopsis.wsdls.tooling.ApexClass;
 import org.solenopsis.wsdls.tooling.ApexCodeCoverageAggregate;
 import org.solenopsis.wsdls.tooling.ApexTrigger;
+import org.solenopsis.wsdls.tooling.Error;
 import org.solenopsis.wsdls.tooling.QueryResult;
 import org.solenopsis.wsdls.tooling.SObject;
 import org.solenopsis.wsdls.tooling.SforceServicePortType;
 import org.solenopsis.wsdls.tooling.SforceServiceService;
 import org.solenopsis.lasius.wsimport.util.SalesforceWebServiceUtil;
+import org.solenopsis.wsdls.tooling.ApexClassMember;
+import org.solenopsis.wsdls.tooling.ContainerAsyncRequest;
+import org.solenopsis.wsdls.tooling.DeleteResult;
+import org.solenopsis.wsdls.tooling.DescribeGlobalResult;
+import org.solenopsis.wsdls.tooling.DescribeGlobalSObjectResult;
+import org.solenopsis.wsdls.tooling.Field;
+import org.solenopsis.wsdls.tooling.MetadataContainer;
+import org.solenopsis.wsdls.tooling.SaveResult;
 
 
 /**
@@ -201,26 +212,121 @@ public class Main {
         }
     }
 
+    public static void processErrors(final String prefix, final List<Error> errorList) {
+        for (final Error error : errorList) {
+            System.out.println(prefix + error.getMessage() + " [" + error.getStatusCode().name() + " - " + error.getStatusCode().value() + "] (" + error.getFields().size() + "):");
+            for (final String field : error.getFields()) {
+                System.out.println(prefix + "    " + field);
+            }
+        }
+    }
+
+    public static void processErrors(final List<Error> errorList) {
+        processErrors("    ", errorList);
+    }
+
+    public static void processSaveResults(final List<SaveResult> srList) {
+        for (final SaveResult sr : srList) {
+            System.out.println(sr.getId() + " -> " + sr.isSuccess() + " (" + sr.getErrors().size() + "):");
+
+            if (!sr.isSuccess()) {
+                processErrors(sr.getErrors());
+            }
+        }
+    }
+
+    public static void emitMetadataTypes(final String wsdlType, Credentials creds) throws Exception {
+        final SforceServicePortType port = SalesforceWebServiceUtil.createToolingProxyPort(new SingleSessionMgr(creds), SforceServiceService.class);
+
+        final DescribeGlobalResult dgr = port.describeGlobal();
+
+        System.out.printf("\n\n%-45s%-45s\n", "NAME", "LABEL");
+
+        for (final DescribeGlobalSObjectResult dgsor : dgr.getSobjects()) {
+            System.out.printf("%-45s%-45s\n", dgsor.getName(), dgsor.getLabel());
+        }
+    }
+
+    public static void runTest(final String wsdlType, Credentials creds) throws Exception {
+        final SforceServicePortType port = SalesforceWebServiceUtil.createToolingProxyPort(new SingleSessionMgr(creds), SforceServiceService.class);
+
+        final MetadataContainer container = new MetadataContainer();
+        container.setName("TestResults"+System.currentTimeMillis());
+
+        final List<SObject> containerList = new ArrayList<SObject>();
+        containerList.add(container);
+
+        final List<SaveResult> containerSaveResultList = port.create(containerList);
+
+        final String containerId = containerSaveResultList.get(0).getId();
+
+        System.out.println("Container id [" + containerId + "]");
+
+        final ContainerAsyncRequest car = new ContainerAsyncRequest();
+        car.setMetadataContainerId(containerId);
+        car.setIsRunTests(true);
+
+        final List<SObject> carList = new ArrayList<SObject>();
+        carList.add(car);
+
+        processSaveResults(port.create(carList));
+    }
+
+    public static void deleteContainers(final String wsdlType, Credentials creds) throws Exception {
+        final SforceServicePortType port = SalesforceWebServiceUtil.createToolingProxyPort(new SingleSessionMgr(creds), SforceServiceService.class);
+//
+//        final MetadataContainer container = new MetadataContainer();
+//        container.setName("TestResults");
+//
+//        final List<SObject> containerList = new ArrayList<SObject>();
+//        containerList.add(container);
+
+//        final DescribeGlobalResult dgr = port.describeGlobal();
+//
+//        for (final DescribeGlobalSObjectResult dgsor : dgr.getSobjects()) {
+//            System.out.println(dgsor.getLabel() + "  " + dgsor.getName());
+//        }
+
+        final QueryResult qr = port.query("select Id, Name from MetadataContainer");
+        final List<String> toDelete = new ArrayList<String>(qr.getSize());
+        for (final SObject sobj : qr.getRecords()) {
+            final MetadataContainer mc = (MetadataContainer) sobj;
+            System.out.println(mc.getId() + " " + mc.getName());
+            toDelete.add(mc.getId());
+        }
+
+        final List<DeleteResult> drList = port.delete(toDelete);
+
+        for (final DeleteResult dr : drList) {
+            System.out.println(dr.getId() + " " + dr.isSuccess());
+            System.out.println(dr.getErrors());
+        }
+    }
+
     public static void main(final String[] args) throws Exception {
         LogManager.getLogManager().readConfiguration(Main.class.getResourceAsStream("/logging.properties"));
+//
+        final String env = "sfloess.properties";
+//        final String env = "test-dev.properties";
+////        final String env = "qa.properties";
+////        final String env = "dev.properties";
+//
+//        long start1 = System.currentTimeMillis();
+//
+//        emitTooling("Partner WSDL", new PropertiesCredentials(new FilePropertiesMgr(System.getProperty("user.home") + "/.solenopsis/credentials/" + env)));
+//
+//        long stop1 = System.currentTimeMillis();
+//
+//        long start2 = System.currentTimeMillis();
+//
+//        emitTooling("Partner WSDL", new PropertiesCredentials(new FilePropertiesMgr(System.getProperty("user.home") + "/.solenopsis/credentials/" + env)));
+//
+//        long stop2 = System.currentTimeMillis();
+//
+//        System.out.println((stop1 - start1) + " -> " + (stop2 - start2));
 
-        final String env = "test-dev.properties";
-//        final String env = "qa.properties";
-//        final String env = "dev.properties";
-
-        long start1 = System.currentTimeMillis();
-
-        emitTooling("Partner WSDL", new PropertiesCredentials(new FilePropertiesMgr(System.getProperty("user.home") + "/.solenopsis/credentials/" + env)));
-
-        long stop1 = System.currentTimeMillis();
-
-        long start2 = System.currentTimeMillis();
-
-        emitTooling("Partner WSDL", new PropertiesCredentials(new FilePropertiesMgr(System.getProperty("user.home") + "/.solenopsis/credentials/" + env)));
-
-        long stop2 = System.currentTimeMillis();
-
-        System.out.println((stop1 - start1) + " -> " + (stop2 - start2));
-
+//        runTest("Partner WSDL", new PropertiesCredentials(new FilePropertiesMgr(System.getProperty("user.home") + "/.solenopsis/credentials/" + env)));
+//        deleteContainers("Partner WSDL", new PropertiesCredentials(new FilePropertiesMgr(System.getProperty("user.home") + "/.solenopsis/credentials/" + env)));
+        emitMetadataTypes("Partner WSDL", new PropertiesCredentials(new FilePropertiesMgr(System.getProperty("user.home") + "/.solenopsis/credentials/" + env)));
     }
 }
