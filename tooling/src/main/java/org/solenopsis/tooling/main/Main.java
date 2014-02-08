@@ -2,6 +2,7 @@ package org.solenopsis.tooling.main;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -235,9 +236,48 @@ public class Main {
         }
     }
 
-    public static void emitMetadataTypes(final String wsdlType, Credentials creds) throws Exception {
-        final SforceServicePortType port = SalesforceWebServiceUtil.createToolingProxyPort(new SingleSessionMgr(creds), SforceServiceService.class);
+    public static <T> List<T> convertList(final List<?> list) {
+        final List<T> retVal = new LinkedList<T>();
 
+        for (final Object o : list) {
+            retVal.add((T) o);
+        }
+
+        return retVal;
+    }
+
+    public static List<ApexClass> getAllClasses(final SforceServicePortType port) {
+        return convertList(port.query("select Id, Name, Body from ApexClass where NamespacePrefix = null").getRecords());
+    }
+
+    public static List<ApexClass> getAllTestClasses(final SforceServicePortType port) {
+        final List<ApexClass> retVal = new LinkedList<ApexClass>();
+
+        for (final ApexClass apexClass : getAllClasses(port)) {
+            if (apexClass.getBody().contains("@isTest")) {
+                retVal.add(apexClass);
+            }
+        }
+
+        return retVal;
+    }
+
+    public static MetadataContainer createContainer(final String name, final SforceServicePortType port) {
+        final MetadataContainer container = new MetadataContainer();
+        final List<SObject> containerList = new ArrayList<SObject>();
+        containerList.add(container);
+
+        final List<SaveResult> containerSaveResultList = port.create(containerList);
+        container.setId(containerSaveResultList.get(0).getId());
+
+        return container;
+    }
+
+    public static MetadataContainer createContainer(final SforceServicePortType port) {
+        return createContainer(System.getProperty("user.name") + System.currentTimeMillis(), port);
+    }
+
+    public static void emitMetadataTypes(final SforceServicePortType port ) throws Exception {
         final DescribeGlobalResult dgr = port.describeGlobal();
 
         System.out.printf("\n\n%-45s%-45s\n", "NAME", "LABEL");
@@ -247,23 +287,23 @@ public class Main {
         }
     }
 
-    public static void runTest(final String wsdlType, Credentials creds) throws Exception {
-        final SforceServicePortType port = SalesforceWebServiceUtil.createToolingProxyPort(new SingleSessionMgr(creds), SforceServiceService.class);
+    public static void emitAllClasses(final SforceServicePortType port ) throws Exception {
+        for (final ApexClass apexClass : getAllClasses(port)) {
+            System.out.println(apexClass.getId() + " " + apexClass.getName() + ":\n" + apexClass.getBody());
+        }
+    }
 
-        final MetadataContainer container = new MetadataContainer();
-        container.setName("TestResults"+System.currentTimeMillis());
+    public static void emitAllTestClasses(final SforceServicePortType port ) throws Exception {
+        for (final ApexClass apexClass : getAllTestClasses(port)) {
+            System.out.println(apexClass.getId() + " " + apexClass.getName() + ":\n" + apexClass.getBody());
+        }
+    }
 
-        final List<SObject> containerList = new ArrayList<SObject>();
-        containerList.add(container);
-
-        final List<SaveResult> containerSaveResultList = port.create(containerList);
-
-        final String containerId = containerSaveResultList.get(0).getId();
-
-        System.out.println("Container id [" + containerId + "]");
+    public static void runTest(final SforceServicePortType port) throws Exception {
+        final MetadataContainer container = createContainer(port);
 
         final ContainerAsyncRequest car = new ContainerAsyncRequest();
-        car.setMetadataContainerId(containerId);
+        car.setMetadataContainerId(container.getId());
         car.setIsRunTests(true);
 
         final List<SObject> carList = new ArrayList<SObject>();
@@ -272,8 +312,7 @@ public class Main {
         processSaveResults(port.create(carList));
     }
 
-    public static void deleteContainers(final String wsdlType, Credentials creds) throws Exception {
-        final SforceServicePortType port = SalesforceWebServiceUtil.createToolingProxyPort(new SingleSessionMgr(creds), SforceServiceService.class);
+    public static void deleteContainers(final SforceServicePortType port) throws Exception {
 //
 //        final MetadataContainer container = new MetadataContainer();
 //        container.setName("TestResults");
@@ -303,10 +342,19 @@ public class Main {
         }
     }
 
+    public static Credentials getCredentials() throws Exception {
+        final String env = "sfloess.properties";
+        return new PropertiesCredentials(new FilePropertiesMgr(System.getProperty("user.home") + "/.solenopsis/credentials/" + env));
+    }
+
+    public static SforceServicePortType getPort() throws Exception {
+        return SalesforceWebServiceUtil.createToolingProxyPort(new SingleSessionMgr(getCredentials()), SforceServiceService.class);
+    }
+
     public static void main(final String[] args) throws Exception {
         LogManager.getLogManager().readConfiguration(Main.class.getResourceAsStream("/logging.properties"));
 //
-        final String env = "sfloess.properties";
+//        final String env = "sfloess.properties";
 //        final String env = "test-dev.properties";
 ////        final String env = "qa.properties";
 ////        final String env = "dev.properties";
@@ -327,6 +375,9 @@ public class Main {
 
 //        runTest("Partner WSDL", new PropertiesCredentials(new FilePropertiesMgr(System.getProperty("user.home") + "/.solenopsis/credentials/" + env)));
 //        deleteContainers("Partner WSDL", new PropertiesCredentials(new FilePropertiesMgr(System.getProperty("user.home") + "/.solenopsis/credentials/" + env)));
-        emitMetadataTypes("Partner WSDL", new PropertiesCredentials(new FilePropertiesMgr(System.getProperty("user.home") + "/.solenopsis/credentials/" + env)));
+//        final SforceServicePortType port = SalesforceWebServiceUtil.createToolingProxyPort(new SingleSessionMgr(creds), SforceServiceService.class);
+
+//        emitAllClasses(getPort());
+        emitAllTestClasses(getPort());
     }
 }
