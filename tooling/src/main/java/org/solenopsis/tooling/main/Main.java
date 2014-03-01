@@ -20,13 +20,18 @@ import org.solenopsis.wsdls.tooling.SObject;
 import org.solenopsis.wsdls.tooling.SforceServicePortType;
 import org.solenopsis.wsdls.tooling.SforceServiceService;
 import org.solenopsis.lasius.wsimport.util.SalesforceWebServiceUtil;
+import org.solenopsis.wsdls.metadata.MetadataService;
 import org.solenopsis.wsdls.tooling.ApexClassMember;
+import org.solenopsis.wsdls.tooling.CodeCoverageResult;
+import org.solenopsis.wsdls.tooling.CodeLocation;
 import org.solenopsis.wsdls.tooling.ContainerAsyncRequest;
 import org.solenopsis.wsdls.tooling.DeleteResult;
 import org.solenopsis.wsdls.tooling.DescribeGlobalResult;
 import org.solenopsis.wsdls.tooling.DescribeGlobalSObjectResult;
 import org.solenopsis.wsdls.tooling.Field;
 import org.solenopsis.wsdls.tooling.MetadataContainer;
+import org.solenopsis.wsdls.tooling.RunTestsRequest;
+import org.solenopsis.wsdls.tooling.RunTestsResult;
 import org.solenopsis.wsdls.tooling.SaveResult;
 
 
@@ -187,9 +192,7 @@ public class Main {
         return retVal;
     }
 
-    private static void emitTooling(final String wsdlType, Credentials creds) throws Exception {
-        final SforceServicePortType port = SalesforceWebServiceUtil.createToolingProxyPort(new SingleSessionMgr(creds), SforceServiceService.class);
-
+    private static void emitTooling(final SforceServicePortType port) throws Exception {
         final Map<String, ApexCodeCoverageAggregate> coverageMap = getCodeCoverage(port);
 
         final Map<String, String> classCoverage = getClassCoverage(port, coverageMap);
@@ -247,7 +250,7 @@ public class Main {
     }
 
     public static List<ApexClass> getAllClasses(final SforceServicePortType port) {
-        return convertList(port.query("select Id, Name, Body from ApexClass where NamespacePrefix = null").getRecords());
+        return convertList(port.query("select Id, Name, Body, SymbolTable from ApexClass where NamespacePrefix = null").getRecords());
     }
 
     public static List<ApexClass> getAllTestClasses(final SforceServicePortType port) {
@@ -295,21 +298,60 @@ public class Main {
 
     public static void emitAllTestClasses(final SforceServicePortType port ) throws Exception {
         for (final ApexClass apexClass : getAllTestClasses(port)) {
-            System.out.println(apexClass.getId() + " " + apexClass.getName() + ":\n" + apexClass.getBody());
+            System.out.println(apexClass.getId() + " " + apexClass.getName());
+        }
+    }
+    
+    public static void emitCodeLocation(final String prefix, final CodeLocation codeLocation) {
+        System.out.print(prefix);
+        System.out.printf("%10d%10d%10d\n", codeLocation.getLine(), codeLocation.getColumn(), codeLocation.getNumExecutions());
+    }
+    
+    public static void emitCodeLocation(final List<CodeLocation> codeLocationList) {
+        String prefix = String.format("%10s", " ");
+        for (final CodeLocation codeLocation : codeLocationList) {
+            emitCodeLocation(prefix, codeLocation);
+            prefix = String.format("%70s", " ");
+        }
+    }
+    
+    public static void emitCodeCoverageResult(final CodeCoverageResult coverageResult) {
+        System.out.printf("%-30s%-30s", coverageResult.getId(), coverageResult.getName());
+        emitCodeLocation(coverageResult.getLocationsNotCovered());
+        System.out.println();
+    }
+    
+    public static void emitCodeCoverageResult(final List<CodeCoverageResult> codeCoverageResultList) {
+        System.out.printf("%-30s%-30s%10s%10s%10s%10s\n", "ID", "NAME", " ", "LINE", "COLUMN", "EXECUTED");
+        
+        for (final CodeCoverageResult coverageResult : codeCoverageResultList) {
+            emitCodeCoverageResult(coverageResult);
         }
     }
 
-    public static void runTest(final SforceServicePortType port) throws Exception {
-        final MetadataContainer container = createContainer(port);
-
-        final ContainerAsyncRequest car = new ContainerAsyncRequest();
-        car.setMetadataContainerId(container.getId());
-        car.setIsRunTests(true);
-
-        final List<SObject> carList = new ArrayList<SObject>();
-        carList.add(car);
-
-        processSaveResults(port.create(carList));
+    public static void runTests(final SforceServicePortType port) throws Exception {
+//        final MetadataContainer container = createContainer(port);
+//
+//        final List<SObject> carList = new ArrayList<SObject>();
+//
+//        for (final ApexClass apexClass : getAllTestClasses(port)) {
+//            final ContainerAsyncRequest car = new ContainerAsyncRequest();
+//            car.setMetadataContainerId(container.getId());
+//            car.setMetadataContainerMemberId(apexClass.getId());
+//            car.setIsRunTests(true);
+//
+//            System.out.println("Adding class [" + apexClass.getName() + "]");
+//
+//            carList.add(car);
+//        }
+//
+//        processSaveResults(port.create(carList));
+        RunTestsRequest request = new RunTestsRequest();
+//        request.getClasses().add("Test");
+        
+        RunTestsResult result = port.runTests(request);
+        
+        emitCodeCoverageResult(result.getCodeCoverage());
     }
 
     public static void deleteContainers(final SforceServicePortType port) throws Exception {
@@ -378,6 +420,8 @@ public class Main {
 //        final SforceServicePortType port = SalesforceWebServiceUtil.createToolingProxyPort(new SingleSessionMgr(creds), SforceServiceService.class);
 
 //        emitAllClasses(getPort());
-        emitAllTestClasses(getPort());
+//        emitAllTestClasses(getPort());
+        emitTooling(getPort());
+//        runTests(getPort());
     }
 }
