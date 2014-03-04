@@ -346,9 +346,12 @@ public class Main {
 //        }
 //
 //        processSaveResults(port.create(carList));
-        RunTestsRequest request = new RunTestsRequest();
-//        request.getClasses().add("Test");
+        System.out.println("Preparing to run tests...");
         
+        RunTestsRequest request = new RunTestsRequest();
+//        request.getClasses().add("BugUtils_Test");
+        
+        request.setAllTests(true);
         RunTestsResult result = port.runTests(request);
         
         emitCodeCoverageResult(result.getCodeCoverage());
@@ -421,7 +424,7 @@ public class Main {
 
 //        emitAllClasses(getPort());
 //        emitAllTestClasses(getPort());
+        runTests(getPort());
         emitTooling(getPort());
-//        runTests(getPort());
     }
 }
