@@ -3196,10 +3196,11 @@ ${sfdc-util.SF-JAR.PATH}
             String computeIgnores(File dir, String delimiter, StringBuilder sb) {
                 XPath xpath = XPathFactory.newInstance().newXPath();
 
+                System.out.println("Ignoring the following flows:");
+
                 for (File flowDefinition : new File(dir, "flowDefinitions").listFiles()) {
                     sb.append(delimiter).append("**/").append(computeBaseName(flowDefinition)).append('-').append(computeVersion(xpath, flowDefinition)).append(".flow");
-
-                    System.out.println(computeBaseName(flowDefinition) + "-" + computeVersion(xpath, flowDefinition));
+                    System.out.println("    " + computeBaseName(flowDefinition) + "-" + computeVersion(xpath, flowDefinition) + ".flow");
                 }
 
                 return sb.toString();
