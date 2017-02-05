@@ -2960,6 +2960,7 @@ ${sfdc-util.SF-JAR.PATH}
             project.setProperty(attributes.get("property"), applyXpaths(attributes.get("dir"), attributes.get("comparedir"), getApplyXpaths()));
         ]]>
 	</scriptdef>
+
     <scriptdef name="ensureMetadataPairs" uri="http://www.redhat.com/sfdc" language="beanshell" description="Ensure a metadata file has a corresponding file">
         <classpath refid="solenopsis.script.PATH"/>
 
@@ -3130,6 +3131,115 @@ ${sfdc-util.SF-JAR.PATH}
 
     <!-- =========================================================================================== -->
 
+    <scriptdef name="computeFlowIgnores" uri="http://www.redhat.com/sfdc" language="beanshell" description="Compute the flows to ignore">
+        <classpath refid="solenopsis.script.PATH"/>
+
+        <attribute name="dir"/>
+        <attribute name="property"/>
+        <attribute name="delimiter"/>
+
+		<![CDATA[
+            import java.io.File;
+            import java.io.FileInputStream;
+            import java.io.IOException;
+
+            import org.xml.sax.InputSource;
+
+            import javax.xml.xpath.XPath;
+            import javax.xml.xpath.XPathExpression;
+            import javax.xml.xpath.XPathFactory;
+
+            // -------------------------------------------------------------
+
+            void close(InputStream is) {
+                try {
+                    is.close();
+                } catch (IOException ioException) {
+                    System.err.println("Trouble closing input stream!");
+                }
+            }
+
+            // -------------------------------------------------------------
+
+            String computeVersion(XPath xpath, InputSource is) {
+                return xpath.evaluate("//*[local-name() = 'activeVersionNumber']/text()", is);
+            }
+
+            // -------------------------------------------------------------
+
+            String computeVersion(XPath xpath, FileInputStream fis) {
+                String retVal = "";
+
+                try {
+                     retVal = computeVersion(xpath, new InputSource(fis));
+                } finally {
+                    close(fis);
+                }
+
+                return retVal;
+            }
+
+            // -------------------------------------------------------------
+
+            String computeVersion(XPath xpath, File flowDefinition) {
+                return computeVersion(xpath, new FileInputStream(flowDefinition));
+            }
+
+            // -------------------------------------------------------------
+
+            String computeBaseName(File file) {
+                return file.getName().split("\\.") [0];
+            }
+
+            // -------------------------------------------------------------
+
+            String computeIgnores(File dir, String delimiter, StringBuilder sb) {
+                XPath xpath = XPathFactory.newInstance().newXPath();
+
+                for (File flowDefinition : new File(dir, "flowDefinitions").listFiles()) {
+                    sb.append(delimiter).append("**/").append(computeBaseName(flowDefinition)).append('-').append(computeVersion(xpath, flowDefinition)).append(".flow");
+
+                    System.out.println(computeBaseName(flowDefinition) + "-" + computeVersion(xpath, flowDefinition));
+                }
+
+                return sb.toString();
+            }
+
+            // -------------------------------------------------------------
+
+            String computeIgnores(String dir, String delimiter, StringBuilder sb) {
+                return computeIgnores(new File(dir), delimiter, sb);
+            }
+
+            // -------------------------------------------------------------
+
+            boolean isFlowDefinitionsAvailable(String dir) {
+                return new File(dir, "flowDefinitions").exists();
+            }
+
+            // -------------------------------------------------------------
+
+            String computeDelimiter(String delimiter) {
+                return null == delimiter ? " " : delimiter;
+            }
+
+            // -------------------------------------------------------------
+
+            String computeIgnores(String dir, String delimiter) {
+                // Make sure flow definitions exist!
+                if (! isFlowDefinitionsAvailable(dir)) {
+                    return "";
+                }
+
+                return computeIgnores(dir, delimiter, new StringBuilder());
+            }
+
+            // -------------------------------------------------------------
+
+            project.setProperty(attributes.get("property"), computeIgnores(attributes.get("dir"), computeDelimiter(attributes.get("delimiter"))));
+        ]]>
+	</scriptdef>
+
 	<macrodef name="push" backtrace="true" uri="http://www.redhat.com/sfdc" description="This will push the master to SFDC dependent environments - its is an additive push">
 		<attribute name="masterEnv"              default="${solenopsis.env.MASTER}"     description="The master environment who has the correct data defined"/>
 		<attribute name="dependentEnv"           default="${solenopsis.env.DEPENDENT}"  description="The dependent environment from which to push"/>
@@ -3194,10 +3304,12 @@ ${sfdc-util.SF-JAR.PATH}
 			<delete dir="${push.tmp.DIR}"/>
 			<mkdir dir="${push.tmp.DIR}"/>
 
+            <rh-sfdc:computeFlowIgnores dir="${solenopsis.env.@{masterEnv}.HOME}" property="push.flow.ignore"/>
+
 			<rh-util:ifNotSet property="sf.filesContain">
 				<rh-util:then>
 					<copy todir="${push.tmp.DIR}">
-						<fileset dir="${solenopsis.env.@{masterEnv}.HOME}" includes="**/*"/>
+                        <fileset dir="${solenopsis.env.@{masterEnv}.HOME}" includes="**/*" excludes="${push.flow.ignore}"/>
 					</copy>
 				</rh-util:then>
 
