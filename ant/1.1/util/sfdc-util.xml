@@ -3199,8 +3199,13 @@ ${sfdc-util.SF-JAR.PATH}
                 System.out.println("Ignoring the following flows:");
 
                 for (File flowDefinition : new File(dir, "flowDefinitions").listFiles()) {
-                    sb.append(delimiter).append("**/").append(computeBaseName(flowDefinition)).append('-').append(computeVersion(xpath, flowDefinition)).append(".flow");
-                    System.out.println("    " + computeBaseName(flowDefinition) + "-" + computeVersion(xpath, flowDefinition) + ".flow");
+                    String versionStr = computeVersion(xpath, flowDefinition);
+                    int maxVersion = Integer.parseInt(versionStr) + 1;
+
+                    for (int version = 1; version < maxVersion; version++) {
+                        sb.append(delimiter).append("**/").append(computeBaseName(flowDefinition)).append('-').append(version).append(".flow");
+                        System.out.println("    " + computeBaseName(flowDefinition) + "-" + version + ".flow");
+                    }
                 }
 
                 return sb.toString();
@@ -3305,7 +3310,13 @@ ${sfdc-util.SF-JAR.PATH}
 			<delete dir="${push.tmp.DIR}"/>
 			<mkdir dir="${push.tmp.DIR}"/>
 
-            <rh-sfdc:computeFlowIgnores dir="${solenopsis.env.@{masterEnv}.HOME}" property="push.flow.ignore"/>
+			<rh-util:property name="push.meta.tmp.DIR" value="${solenopsis.temp.DIR}/push-meta"/>
+			<delete dir="${push.meta.tmp.DIR}"/>
+			<mkdir dir="${push.meta.tmp.DIR}"/>
+
+            <sf:bulkRetrieve username="${push.USERNAME}" password="${push.PASSWORD}" serverurl="${push.URL}" maxPoll="@{maxPoll}" metadataType="${sf.metadata.flowDefinitions}" retrieveTarget="${push.meta.tmp.DIR}" batchSize="1000" apiVersion="${push.VERSION}" unzip="true"/>
+
+            <rh-sfdc:computeFlowIgnores dir="${push.meta.tmp.DIR}" property="push.flow.ignore"/>
 
 			<rh-util:ifNotSet property="sf.filesContain">
 				<rh-util:then>
