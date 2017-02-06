@@ -220,6 +220,7 @@ ${sfdc-util.SF-JAR.PATH}
             xmlMap.put("letterhead", "Letterhead");
             xmlMap.put("email", "EmailTemplate");
             xmlMap.put("flows", "Flow");
+            xmlMap.put("flowDefinitions", "FlowDefinition");
             xmlMap.put("workflows", "Workflow");
             xmlMap.put("assignmentRules", "AssignmentRules");
             xmlMap.put("autoResponseRules", "AutoResponseRules");
@@ -293,6 +294,7 @@ ${sfdc-util.SF-JAR.PATH}
             suffixMap.put("letterhead", "letter");
             suffixMap.put("email", "email");
             suffixMap.put("flows", "flow");
+            suffixMap.put("flowDefinitions", "flowDefinition");
             suffixMap.put("workflows", "workflow");
             suffixMap.put("assignmentRules", "assignmentRules");
             suffixMap.put("autoResponseRules", "autoResponseRules");
@@ -359,6 +361,7 @@ ${sfdc-util.SF-JAR.PATH}
             wildcardSet.add("applications");
             wildcardSet.add("portals");
             wildcardSet.add("flows");
+            wildcardSet.add("flowDefinitons");
             wildcardSet.add("workflows");
             wildcardSet.add("assignmentRules");
             wildcardSet.add("autoResponseRules");
@@ -2569,6 +2572,18 @@ ${sfdc-util.SF-JAR.PATH}
 
                     <rh-sfdc:createPackageXmlChildren property="file-push.PACKAGE" fileList="@{addFileList}" fileDelimiter="@{fileDelimiter}" version="${file-push.VERSION}"/>
 
+                    <rh-util:property name="file-push.meta.tmp.DIR" value="${solenopsis.temp.DIR}/file-push-meta"/>
+                    <delete dir="${file-push.meta.tmp.DIR}"/>
+                    <mkdir dir="${file-push.meta.tmp.DIR}"/>
+
+                    <sf:bulkRetrieve username="${file-push.USERNAME}" password="${file-push.PASSWORD}" serverurl="${file-push.URL}" maxPoll="@{maxPoll}" metadataType="${sf.metadata.flowDefinitions}" retrieveTarget="${file-push.meta.tmp.DIR}" batchSize="1000" apiVersion="${file-push.VERSION}" unzip="true"/>
+
+                    <rh-sfdc:computeFlowIgnores dir="${file-push.meta.tmp.DIR}" property="file-push.flow.ignore"/>
+
+                    <delete>
+                        <fileset dir="${file-push.tmp.DIR}" includes="${file-push.flow.ignore}"/>
+                    </delete>
+
                     <!--
 					<rh-sfdc:xml-package property="file-push.PACKAGE" version="${file-push.VERSION}">
 						<rh-sfdc:file-list-xml-types property="file-push.PACKAGE" fileList="@{addFileList}" fileDelimiter="@{fileDelimiter}"/>
@@ -3150,7 +3165,8 @@ ${sfdc-util.SF-JAR.PATH}
             import javax.xml.xpath.XPathFactory;
 
             // -------------------------------------------------------------
-
+            // Close the input stream...
+            // -------------------------------------------------------------
             void close(InputStream is) {
                 try {
                     is.close();
@@ -3160,13 +3176,15 @@ ${sfdc-util.SF-JAR.PATH}
             }
 
             // -------------------------------------------------------------
-
+            // Using XPath, pull out the version of the flow...
+            // -------------------------------------------------------------
             String computeVersion(XPath xpath, InputSource is) {
                 return xpath.evaluate("//*[local-name() = 'activeVersionNumber']/text()", is);
             }
 
             // -------------------------------------------------------------
-
+            // Using XPath, pull out the version of the flow from the file...
+            // -------------------------------------------------------------
             String computeVersion(XPath xpath, FileInputStream fis) {
                 String retVal = "";
 
@@ -3180,19 +3198,22 @@ ${sfdc-util.SF-JAR.PATH}
             }
 
             // -------------------------------------------------------------
-
+            // Using XPath, pull out the version of the flow from the file...
+            // -------------------------------------------------------------
             String computeVersion(XPath xpath, File flowDefinition) {
                 return computeVersion(xpath, new FileInputStream(flowDefinition));
             }
 
             // -------------------------------------------------------------
-
+            // Compute the base name of the file...
+            //
             String computeBaseName(File file) {
                 return file.getName().split("\\.") [0];
             }
 
             // -------------------------------------------------------------
-
+            // Compute which files we should ignore...
+            // -------------------------------------------------------------
             String computeIgnores(File dir, String delimiter, StringBuilder sb) {
                 XPath xpath = XPathFactory.newInstance().newXPath();
 
@@ -3212,25 +3233,29 @@ ${sfdc-util.SF-JAR.PATH}
             }
 
             // -------------------------------------------------------------
-
+            // Compute which files we should ignore...
+            // -------------------------------------------------------------
             String computeIgnores(String dir, String delimiter, StringBuilder sb) {
                 return computeIgnores(new File(dir), delimiter, sb);
             }
 
             // -------------------------------------------------------------
-
+            // Are flow definitions available to process?
+            // -------------------------------------------------------------
             boolean isFlowDefinitionsAvailable(String dir) {
                 return new File(dir, "flowDefinitions").exists();
             }
 
             // -------------------------------------------------------------
-
+            // Need some delimiter...if it's null default to spaces...
+            // -------------------------------------------------------------
             String computeDelimiter(String delimiter) {
                 return null == delimiter ? " " : delimiter;
             }
 
             // -------------------------------------------------------------
-
+            // Compute which flows we will ignore...
+            // -------------------------------------------------------------
             String computeIgnores(String dir, String delimiter) {
                 // Make sure flow definitions exist!
                 if (! isFlowDefinitionsAvailable(dir)) {
@@ -3241,7 +3266,8 @@ ${sfdc-util.SF-JAR.PATH}
             }
 
             // -------------------------------------------------------------
-
+            // Main entry of script...
+            // -------------------------------------------------------------
             project.setProperty(attributes.get("property"), computeIgnores(attributes.get("dir"), computeDelimiter(attributes.get("delimiter"))));
         ]]>
 	</scriptdef>
