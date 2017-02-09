@@ -2577,12 +2577,18 @@ ${sfdc-util.SF-JAR.PATH}
                     <mkdir dir="${file-push.meta.tmp.DIR}"/>
 
                     <sf:bulkRetrieve username="${file-push.USERNAME}" password="${file-push.PASSWORD}" serverurl="${file-push.URL}" maxPoll="@{maxPoll}" metadataType="${sf.metadata.flowDefinitions}" retrieveTarget="${file-push.meta.tmp.DIR}" batchSize="1000" apiVersion="${file-push.VERSION}" unzip="true"/>
+                    <sf:bulkRetrieve username="${file-push.USERNAME}" password="${file-push.PASSWORD}" serverurl="${file-push.URL}" maxPoll="@{maxPoll}" metadataType="${sf.metadata.entitlementProcesses}" retrieveTarget="${file-push.meta.tmp.DIR}" batchSize="1000" apiVersion="${file-push.VERSION}" unzip="true"/>
+                    <sf:bulkRetrieve username="${file-push.USERNAME}" password="${file-push.PASSWORD}" serverurl="${file-push.URL}" maxPoll="@{maxPoll}" metadataType="${sf.metadata.milestoneTypes}" retrieveTarget="${file-push.meta.tmp.DIR}" batchSize="1000" apiVersion="${file-push.VERSION}" unzip="true"/>
 
-                    <rh-sfdc:computeFlowIgnores dir="${file-push.meta.tmp.DIR}" property="file-push.flow.ignore"/>
+                    <rh-sfdc:computeIgnores dir="${file-push.meta.tmp.DIR}" property="file-push.flow.ignore"/>
 
-                    <delete>
-                        <fileset dir="${file-push.tmp.DIR}" includes="${file-push.flow.ignore}"/>
-                    </delete>
+                    <rh-util:ifNotEqual arg1="${file-push.flow.ignore}" arg2="">
+                        <rh-util:then>
+                            <delete>
+                                <fileset dir="${file-push.tmp.DIR}" includes="${file-push.flow.ignore}"/>
+                            </delete>
+                        </rh-util:then>
+                    </rh-util:ifNotEqual>
 
                     <!--
 					<rh-sfdc:xml-package property="file-push.PACKAGE" version="${file-push.VERSION}">
@@ -2708,6 +2714,8 @@ ${sfdc-util.SF-JAR.PATH}
                 @{fastDeploy}
 
 			</echo>
+
+            <fail/>
 
             <rh-util:ifDefinedValue value="@{fastDeploy}">
                 <rh-util:then>
@@ -3146,7 +3154,7 @@ ${sfdc-util.SF-JAR.PATH}
 
     <!-- =========================================================================================== -->
 
-    <scriptdef name="computeFlowIgnores" uri="http://www.redhat.com/sfdc" language="beanshell" description="Compute the flows to ignore">
+    <scriptdef name="computeIgnores" uri="http://www.redhat.com/sfdc" language="beanshell" description="Compute the flows to ignore">
         <classpath refid="solenopsis.script.PATH"/>
 
         <attribute name="dir"/>
@@ -3206,37 +3214,83 @@ ${sfdc-util.SF-JAR.PATH}
 
             // -------------------------------------------------------------
             // Compute the base name of the file...
-            //
+            // -------------------------------------------------------------
             String computeBaseName(File file) {
                 return file.getName().split("\\.") [0];
             }
 
             // -------------------------------------------------------------
-            // Compute which files we should ignore...
+            // Compute a file array from a list - if null, return an empty array...
             // -------------------------------------------------------------
-            String computeIgnores(File dir, String delimiter, StringBuilder sb) {
+            File[] computeFiles(File[] files) {
+                return null == files ? new File[0] : files;
+            }
+
+            // -------------------------------------------------------------
+            // Compute which flows we should ignore...
+            // -------------------------------------------------------------
+            StringBuilder computeFlowsIgnore(File dir, String delimiter, StringBuilder sb) {
                 XPath xpath = XPathFactory.newInstance().newXPath();
 
                 System.out.println("Ignoring the following flows:");
 
-                for (File flowDefinition : new File(dir, "flowDefinitions").listFiles()) {
+                for (File flowDefinition : computeFiles(new File(dir, "flowDefinitions").listFiles())) {
                     String versionStr = computeVersion(xpath, flowDefinition);
                     int maxVersion = Integer.parseInt(versionStr) + 1;
 
                     for (int version = 1; version < maxVersion; version++) {
-                        sb.append(delimiter).append("**/").append(computeBaseName(flowDefinition)).append('-').append(version).append(".flow");
+                        sb.append(delimiter).append("flowDefinitions/").append(computeBaseName(flowDefinition)).append('-').append(version).append(".flow");
                         System.out.println("    " + computeBaseName(flowDefinition) + "-" + version + ".flow");
                     }
                 }
 
-                return sb.toString();
+                return sb;
+            }
+
+            // -------------------------------------------------------------
+            // Compute which file we should ignore...
+            // -------------------------------------------------------------
+            StringBuilder computeFilesToIgnore(File dir, String subDir, String delimiter, StringBuilder sb) {
+                System.out.println("Ignoring the following " + subDir + ":");
+
+                for (File file : computeFiles(new File(dir, subDir).listFiles())) {
+                    sb.append(delimiter).append(subDir).append("/").append(file.getName());
+                    System.out.println("    " + file.getName());
+                }
+
+                return sb;
+            }
+
+            // -------------------------------------------------------------
+            // Compute which entitlements we should ignore...
+            // -------------------------------------------------------------
+            StringBuilder computeEntitlementsIgnore(File dir, String delimiter, StringBuilder sb) {
+                return computeFilesToIgnore(dir, "entitlementProcesses", delimiter, sb);
+            }
+
+            // -------------------------------------------------------------
+            // Compute which milestones we should ignore...
+            // -------------------------------------------------------------
+            StringBuilder computeMilestonesIgnore(File dir, String delimiter, StringBuilder sb) {
+                return computeFilesToIgnore(dir, "milestoneTypes", delimiter, sb);
+            }
+
+            // -------------------------------------------------------------
+            // Compute which files we should ignore...
+            // -------------------------------------------------------------
+            String computeFileIgnores(File dir, String delimiter, StringBuilder sb) {
+                return computeEntitlementsIgnore(dir, delimiter, computeMilestonesIgnore(dir, delimiter, computeFlowsIgnore(dir, delimiter, sb))).toString();
             }
 
             // -------------------------------------------------------------
             // Compute which files we should ignore...
             // -------------------------------------------------------------
             String computeIgnores(String dir, String delimiter, StringBuilder sb) {
-                return computeIgnores(new File(dir), delimiter, sb);
+            //return computeFileIgnores(new File(dir), delimiter, sb);
+                String retVal = computeFileIgnores(new File(dir), delimiter, sb);
+
+                System.err.println("SFLOESS:\n\t" + retVal);
+                return retVal;
             }
 
             // -------------------------------------------------------------
@@ -3247,18 +3301,39 @@ ${sfdc-util.SF-JAR.PATH}
             }
 
             // -------------------------------------------------------------
+            // Are entitlement processes available to process?
+            // -------------------------------------------------------------
+            boolean isEntitlementProcessesAvailable(String dir) {
+                return new File(dir, "entitlementProcesses").exists();
+            }
+
+            // -------------------------------------------------------------
+            // Are milestone types available to process?
+            // -------------------------------------------------------------
+            boolean isMilestoneTypesAvailable(String dir) {
+                return new File(dir, "milestoneTypes").exists();
+            }
+
+            // -------------------------------------------------------------
+            // Are the types available to process?
+            // -------------------------------------------------------------
+            boolean isAvailable(String dir) {
+                return isFlowDefinitionsAvailable(dir) || isEntitlementProcessesAvailable(dir) || isMilestoneTypesAvailable(dir);
+            }
+
+            // -------------------------------------------------------------
             // Need some delimiter...if it's null default to spaces...
             // -------------------------------------------------------------
             String computeDelimiter(String delimiter) {
-                return null == delimiter ? " " : delimiter;
+                return null == delimiter ? "," : delimiter;
             }
 
             // -------------------------------------------------------------
             // Compute which flows we will ignore...
             // -------------------------------------------------------------
             String computeIgnores(String dir, String delimiter) {
-                // Make sure flow definitions exist!
-                if (! isFlowDefinitionsAvailable(dir)) {
+                // Make sure dirs exist!
+                if (! isAvailable(dir)) {
                     return "";
                 }
 
@@ -3341,8 +3416,10 @@ ${sfdc-util.SF-JAR.PATH}
 			<mkdir dir="${push.meta.tmp.DIR}"/>
 
             <sf:bulkRetrieve username="${push.USERNAME}" password="${push.PASSWORD}" serverurl="${push.URL}" maxPoll="@{maxPoll}" metadataType="${sf.metadata.flowDefinitions}" retrieveTarget="${push.meta.tmp.DIR}" batchSize="1000" apiVersion="${push.VERSION}" unzip="true"/>
+            <sf:bulkRetrieve username="${push.USERNAME}" password="${push.PASSWORD}" serverurl="${push.URL}" maxPoll="@{maxPoll}" metadataType="${sf.metadata.entitlementProcesses}" retrieveTarget="${push.meta.tmp.DIR}" batchSize="1000" apiVersion="${push.VERSION}" unzip="true"/>
+            <sf:bulkRetrieve username="${push.USERNAME}" password="${push.PASSWORD}" serverurl="${push.URL}" maxPoll="@{maxPoll}" metadataType="${sf.metadata.milestoneTypes}" retrieveTarget="${push.meta.tmp.DIR}" batchSize="1000" apiVersion="${push.VERSION}" unzip="true"/>
 
-            <rh-sfdc:computeFlowIgnores dir="${push.meta.tmp.DIR}" property="push.flow.ignore"/>
+            <rh-sfdc:computeIgnores dir="${push.meta.tmp.DIR}" property="push.flow.ignore"/>
 
 			<rh-util:ifNotSet property="sf.filesContain">
 				<rh-util:then>
@@ -3440,6 +3517,8 @@ ${sfdc-util.SF-JAR.PATH}
                 Jar:                       [${sf.migrationToolJar}]
 
 			</echo>
+
+            <fail/>
 
             <rh-sfdc:generateDeployXml dir="${push.tmp.DIR}" antJar="${sf.migrationToolJar}" apiVersion="${push.VERSION}" username="${push.USERNAME}" password="${push.PASSWORD}" serverurl="${push.URL}" zipFile ="${push.DEPLOY_FILE}" trace="@{trace}" runAllTests="@{runAllTests}" maxPoll="@{maxPoll}" allowMissingFiles="@{allowMissingFiles}" checkOnly="@{checkOnly}" logType="@{logType}" ignoreWarnings="@{ignoreWarnings}" dumpFiles="@{dumpFiles}" showPasswords="@{showPasswords}"/>
 
