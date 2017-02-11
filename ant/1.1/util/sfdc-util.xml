@@ -2369,6 +2369,193 @@ ${sfdc-util.SF-JAR.PATH}
 
     <!-- =========================================================================================== -->
 
+    <scriptdef name="removeImplicitIgnores" uri="http://www.redhat.com/sfdc" language="beanshell" description="Compute the flows to ignore">
+        <classpath refid="solenopsis.script.PATH"/>
+
+        <attribute name="metadatadir"/>
+        <attribute name="removedir"/>
+
+		<![CDATA[
+            import java.io.File;
+            import java.io.FileInputStream;
+            import java.io.IOException;
+
+            import org.xml.sax.InputSource;
+
+            import javax.xml.xpath.XPath;
+            import javax.xml.xpath.XPathExpression;
+            import javax.xml.xpath.XPathFactory;
+
+
+            // -------------------------------------------------------------
+            // Close the input stream...
+            // -------------------------------------------------------------
+            void close(InputStream is) {
+                try {
+                    is.close();
+                } catch (IOException ioException) {
+                    System.err.println("Trouble closing input stream!");
+                }
+            }
+
+            // -------------------------------------------------------------
+            // Using XPath, pull out the version of the flow...
+            // -------------------------------------------------------------
+            String computeVersion(XPath xpath, InputSource is) {
+                return xpath.evaluate("//*[local-name() = 'activeVersionNumber']/text()", is);
+            }
+
+            // -------------------------------------------------------------
+            // Using XPath, pull out the version of the flow from the file...
+            // -------------------------------------------------------------
+            String computeVersion(XPath xpath, FileInputStream fis) {
+                String retVal = "";
+
+                try {
+                     retVal = computeVersion(xpath, new InputSource(fis));
+                } finally {
+                    close(fis);
+                }
+
+                return retVal;
+            }
+
+            // -------------------------------------------------------------
+            // Using XPath, pull out the version of the flow from the file...
+            // -------------------------------------------------------------
+            String computeVersion(XPath xpath, File flowDefinition) {
+                return computeVersion(xpath, new FileInputStream(flowDefinition));
+            }
+
+            // -------------------------------------------------------------
+            // Compute a file array from a list - if null, return an empty array...
+            // -------------------------------------------------------------
+            File[] computeFiles(File[] files) {
+                return null == files ? new File[0] : files;
+            }
+
+            // -------------------------------------------------------------
+            // Compute the base name of the file...
+            // -------------------------------------------------------------
+            String computeBaseName(File file) {
+                return file.getName().split("\\.") [0];
+            }
+
+            // -------------------------------------------------------------
+            // Compute the maximum version of a flow.
+            // -------------------------------------------------------------
+            int computeMaxFlowVersion(XPath xpath, File flowDefinition) {
+                return Integer.parseInt(computeVersion(xpath, flowDefinition)) + 1;
+            }
+
+            // -------------------------------------------------------------
+            // Remove any flows.
+            // -------------------------------------------------------------
+            void removeFlows(XPath xpath, File[] toRemove, File removeDir) {
+                for (File flowDefinition : toRemove) {
+                    int maxVersion = computeMaxFlowVersion(xpath, flowDefinition);
+
+                    for (int version = 1; version < maxVersion; version++) {
+                        File removeFile = new File(removeDir, computeBaseName(flowDefinition));
+
+                        System.out.print("        " + removeFile + ": ");
+                        System.out.println(removeFile.delete());
+                    }
+                }
+            }
+
+            // -------------------------------------------------------------
+            // Remove any flows.
+            // -------------------------------------------------------------
+            void removeFlows(File metadataDir, File removeDir) {
+                System.out.println("    Removing the following flows from deployment:");
+
+                removeFlows(XPathFactory.newInstance().newXPath(), computeFiles(new File(removeDir, "flowDefinitions").listFiles()), removeDir);
+            }
+
+            // -------------------------------------------------------------
+            // Remove individual files from a dir...
+            // -------------------------------------------------------------
+            void removeIndividualFiles(File[] toRemove, File removeDir) {
+                System.out.println("    Removing the following " + removeDir.getName() + " from deployment:");
+
+                for (File aFile : toRemove) {
+                    File removeFile = new File(removeDir, computeBaseName(aFile));
+
+                    System.out.print("        " + removeFile + ": ");
+                    System.out.println(removeFile.delete());
+                }
+            }
+
+
+            // -------------------------------------------------------------
+            // Remove individual files (ones that do not require special
+            // processing...
+            // -------------------------------------------------------------
+            void removeIndividualFiles(File metadataDir, File removeDir) {
+                removeIndividualFiles(computeFiles(new File(metadataDir, "entitlementProcesses").listFiles()), new File(removeDir, "entitlementProcesses"));
+                removeIndividualFiles(computeFiles(new File(metadataDir, "milestoneTypes").listFiles()), new File(removeDir, "milestoneTypes"));
+            }
+
+            // -------------------------------------------------------------
+            // Ensure dirs exists...
+            // -------------------------------------------------------------
+            boolean dirsExist(File metadataDir, File removeDir) {
+                return metadataDir.exists() && removeDir.exists();
+            }
+
+            // -------------------------------------------------------------
+            // Remove files...
+            // -------------------------------------------------------------
+            void removeFiles(File metadataDir, File removeDir) {
+                if (!dirsExist(metadataDir, removeDir)) {
+                    System.out.println("    WARNING: metadata dir [" + metadataDir + "] and/or remove dir [" + removeDir + "] do not exist!  IGNORING");  
+                    return;
+                }
+
+                removeFlows(metadataDir, removeDir);
+                removeIndividualFiles(metadataDir, removeDir);
+            }
+
+            // -------------------------------------------------------------
+            // Remove files...
+            // -------------------------------------------------------------
+            void removeFiles(String metadataDir, String removeDir) {
+                System.out.println("Removing implicit ignore files in [" + removeDir + "]:");
+
+                removeFiles(new File(metadataDir), new File(removeDir));
+            }
+
+            // -------------------------------------------------------------
+            // Main entry of script...
+            // -------------------------------------------------------------
+            removeFiles(attributes.get("metadatadir"), attributes.get("removedir"));
+        ]]>
+	</scriptdef>
+
+	<macrodef name="processImplicitIgnores" backtrace="true" uri="http://www.redhat.com/sfdc" description="Process implicit ignores">
+		<attribute name="dependentEnv" default="${solenopsis.env.DEPENDENT}" description="The dependent environment from which to pull metadata"/>
+		<attribute name="dir"                                                description="The directory containing files that may contain file that should be ignored"/>
+		<attribute name="maxPoll"      default="${sf.maxPoll}"               description="The number of times to poll the SFDC environment when deploying"/>
+        <attribute name="batchSize"    default="${sf.batchSize}"              description="The batch size to use when retrieving metadata"/>
+		<attribute name="description"  default=""                            description="Comment regarding calling this macrodef"/>
+
+		<sequential>
+			<rh-sfdc:compute-env-values env="@{dependentEnv}" username="processImplicitIgnores.USERNAME" webServicePassword="processImplicitIgnores.PASSWORD" url="processImplicitIgnores.URL" version="processImplicitIgnores.VERSION"/>
+			<rh-util:property name="processImplicitIgnores.tmp.DIR" value="${solenopsis.temp.DIR}/processImplicitIgnores-meta"/>
+			<delete dir="${processImplicitIgnores.tmp.DIR}"/>
+			<mkdir dir="${processImplicitIgnores.tmp.DIR}"/>
+
+            <sf:bulkRetrieve username="${processImplicitIgnores.USERNAME}" password="${processImplicitIgnores.PASSWORD}" serverurl="${processImplicitIgnores.URL}" maxPoll="@{maxPoll}" metadataType="${sf.metadata.flowDefinitions}" retrieveTarget="${processImplicitIgnores.tmp.DIR}" batchSize="@{batchSize}" apiVersion="${processImplicitIgnores.VERSION}" unzip="true"/>
+            <sf:bulkRetrieve username="${processImplicitIgnores.USERNAME}" password="${processImplicitIgnores.PASSWORD}" serverurl="${processImplicitIgnores.URL}" maxPoll="@{maxPoll}" metadataType="${sf.metadata.entitlementProcesses}" retrieveTarget="${processImplicitIgnores.tmp.DIR}" batchSize="@{batchSize}" apiVersion="${processImplicitIgnores.VERSION}" unzip="true"/>
+            <sf:bulkRetrieve username="${processImplicitIgnores.USERNAME}" password="${processImplicitIgnores.PASSWORD}" serverurl="${processImplicitIgnores.URL}" maxPoll="@{maxPoll}" metadataType="${sf.metadata.milestoneTypes}" retrieveTarget="${processImplicitIgnores.tmp.DIR}" batchSize="@{batchSize}" apiVersion="${processImplicitIgnores.VERSION}" unzip="true"/>
+
+            <rh-sfdc:removeImplicitIgnores metadatadir="${processImplicitIgnores.tmp.DIR}" removedir="@{dir}"/>
+        </sequential>
+    </macrodef>
+
+    <!-- =========================================================================================== -->
+
     <scriptdef name="generateDeployXml" uri="http://www.redhat.com/sfdc" language="beanshell" description="Generate a build.xml for a build retrieve">
         <classpath refid="solenopsis.script.PATH"/>
 
@@ -2572,24 +2759,6 @@ ${sfdc-util.SF-JAR.PATH}
 
                     <rh-sfdc:createPackageXmlChildren property="file-push.PACKAGE" fileList="@{addFileList}" fileDelimiter="@{fileDelimiter}" version="${file-push.VERSION}"/>
 
-                    <rh-util:property name="file-push.meta.tmp.DIR" value="${solenopsis.temp.DIR}/file-push-meta"/>
-                    <delete dir="${file-push.meta.tmp.DIR}"/>
-                    <mkdir dir="${file-push.meta.tmp.DIR}"/>
-
-                    <sf:bulkRetrieve username="${file-push.USERNAME}" password="${file-push.PASSWORD}" serverurl="${file-push.URL}" maxPoll="@{maxPoll}" metadataType="${sf.metadata.flowDefinitions}" retrieveTarget="${file-push.meta.tmp.DIR}" batchSize="1000" apiVersion="${file-push.VERSION}" unzip="true"/>
-                    <sf:bulkRetrieve username="${file-push.USERNAME}" password="${file-push.PASSWORD}" serverurl="${file-push.URL}" maxPoll="@{maxPoll}" metadataType="${sf.metadata.entitlementProcesses}" retrieveTarget="${file-push.meta.tmp.DIR}" batchSize="1000" apiVersion="${file-push.VERSION}" unzip="true"/>
-                    <sf:bulkRetrieve username="${file-push.USERNAME}" password="${file-push.PASSWORD}" serverurl="${file-push.URL}" maxPoll="@{maxPoll}" metadataType="${sf.metadata.milestoneTypes}" retrieveTarget="${file-push.meta.tmp.DIR}" batchSize="1000" apiVersion="${file-push.VERSION}" unzip="true"/>
-
-                    <rh-sfdc:computeIgnores dir="${file-push.meta.tmp.DIR}" property="file-push.flow.ignore"/>
-
-                    <rh-util:ifNotEqual arg1="${file-push.flow.ignore}" arg2="">
-                        <rh-util:then>
-                            <delete>
-                                <fileset dir="${file-push.tmp.DIR}" includes="${file-push.flow.ignore}"/>
-                            </delete>
-                        </rh-util:then>
-                    </rh-util:ifNotEqual>
-
                     <!--
 					<rh-sfdc:xml-package property="file-push.PACKAGE" version="${file-push.VERSION}">
 						<rh-sfdc:file-list-xml-types property="file-push.PACKAGE" fileList="@{addFileList}" fileDelimiter="@{fileDelimiter}"/>
@@ -2660,6 +2829,11 @@ ${sfdc-util.SF-JAR.PATH}
 
             <ac:propertyregex property="file-push.IGNORE_FILE_CONTENTS" input="${file-push.RAW_IGNORE_FILE_CONTENTS}" regexp="\s" replace=""/>
 
+            <!--
+                Process the implicit ignores...
+            -->
+            <rh-sfdc:processImplicitIgnores dependentEnv="@{dependentEnv}" dir="${file-push.tmp.DIR}" maxPoll="@{maxPoll}"/>
+
 			<!--
 				If an excludes file is passed in, use that for the zip task, otherwise,
 				just call out to zip without it.  Unfortunately, zip complains if one
@@ -2714,8 +2888,6 @@ ${sfdc-util.SF-JAR.PATH}
                 @{fastDeploy}
 
 			</echo>
-
-            <fail/>
 
             <rh-util:ifDefinedValue value="@{fastDeploy}">
                 <rh-util:then>
@@ -3154,199 +3326,6 @@ ${sfdc-util.SF-JAR.PATH}
 
     <!-- =========================================================================================== -->
 
-    <scriptdef name="computeIgnores" uri="http://www.redhat.com/sfdc" language="beanshell" description="Compute the flows to ignore">
-        <classpath refid="solenopsis.script.PATH"/>
-
-        <attribute name="dir"/>
-        <attribute name="property"/>
-        <attribute name="delimiter"/>
-
-		<![CDATA[
-            import java.io.File;
-            import java.io.FileInputStream;
-            import java.io.IOException;
-
-            import org.xml.sax.InputSource;
-
-            import javax.xml.xpath.XPath;
-            import javax.xml.xpath.XPathExpression;
-            import javax.xml.xpath.XPathFactory;
-
-            // -------------------------------------------------------------
-            // Close the input stream...
-            // -------------------------------------------------------------
-            void close(InputStream is) {
-                try {
-                    is.close();
-                } catch (IOException ioException) {
-                    System.err.println("Trouble closing input stream!");
-                }
-            }
-
-            // -------------------------------------------------------------
-            // Using XPath, pull out the version of the flow...
-            // -------------------------------------------------------------
-            String computeVersion(XPath xpath, InputSource is) {
-                return xpath.evaluate("//*[local-name() = 'activeVersionNumber']/text()", is);
-            }
-
-            // -------------------------------------------------------------
-            // Using XPath, pull out the version of the flow from the file...
-            // -------------------------------------------------------------
-            String computeVersion(XPath xpath, FileInputStream fis) {
-                String retVal = "";
-
-                try {
-                     retVal = computeVersion(xpath, new InputSource(fis));
-                } finally {
-                    close(fis);
-                }
-
-                return retVal;
-            }
-
-            // -------------------------------------------------------------
-            // Using XPath, pull out the version of the flow from the file...
-            // -------------------------------------------------------------
-            String computeVersion(XPath xpath, File flowDefinition) {
-                return computeVersion(xpath, new FileInputStream(flowDefinition));
-            }
-
-            // -------------------------------------------------------------
-            // Compute the base name of the file...
-            // -------------------------------------------------------------
-            String computeBaseName(File file) {
-                return file.getName().split("\\.") [0];
-            }
-
-            // -------------------------------------------------------------
-            // Compute a file array from a list - if null, return an empty array...
-            // -------------------------------------------------------------
-            File[] computeFiles(File[] files) {
-                return null == files ? new File[0] : files;
-            }
-
-            // -------------------------------------------------------------
-            // Compute which flows we should ignore...
-            // -------------------------------------------------------------
-            StringBuilder computeFlowsIgnore(File dir, String delimiter, StringBuilder sb) {
-                XPath xpath = XPathFactory.newInstance().newXPath();
-
-                System.out.println("Ignoring the following flows:");
-
-                for (File flowDefinition : computeFiles(new File(dir, "flowDefinitions").listFiles())) {
-                    String versionStr = computeVersion(xpath, flowDefinition);
-                    int maxVersion = Integer.parseInt(versionStr) + 1;
-
-                    for (int version = 1; version < maxVersion; version++) {
-                        sb.append(delimiter).append("flowDefinitions/").append(computeBaseName(flowDefinition)).append('-').append(version).append(".flow");
-                        System.out.println("    " + computeBaseName(flowDefinition) + "-" + version + ".flow");
-                    }
-                }
-
-                return sb;
-            }
-
-            // -------------------------------------------------------------
-            // Compute which file we should ignore...
-            // -------------------------------------------------------------
-            StringBuilder computeFilesToIgnore(File dir, String subDir, String delimiter, StringBuilder sb) {
-                System.out.println("Ignoring the following " + subDir + ":");
-
-                for (File file : computeFiles(new File(dir, subDir).listFiles())) {
-                    sb.append(delimiter).append(subDir).append("/").append(file.getName());
-                    System.out.println("    " + file.getName());
-                }
-
-                return sb;
-            }
-
-            // -------------------------------------------------------------
-            // Compute which entitlements we should ignore...
-            // -------------------------------------------------------------
-            StringBuilder computeEntitlementsIgnore(File dir, String delimiter, StringBuilder sb) {
-                return computeFilesToIgnore(dir, "entitlementProcesses", delimiter, sb);
-            }
-
-            // -------------------------------------------------------------
-            // Compute which milestones we should ignore...
-            // -------------------------------------------------------------
-            StringBuilder computeMilestonesIgnore(File dir, String delimiter, StringBuilder sb) {
-                return computeFilesToIgnore(dir, "milestoneTypes", delimiter, sb);
-            }
-
-            // -------------------------------------------------------------
-            // Compute which files we should ignore...
-            // -------------------------------------------------------------
-            String computeFileIgnores(File dir, String delimiter, StringBuilder sb) {
-                return computeEntitlementsIgnore(dir, delimiter, computeMilestonesIgnore(dir, delimiter, computeFlowsIgnore(dir, delimiter, sb))).toString();
-            }
-
-            // -------------------------------------------------------------
-            // Compute which files we should ignore...
-            // -------------------------------------------------------------
-            String computeIgnores(String dir, String delimiter, StringBuilder sb) {
-            //return computeFileIgnores(new File(dir), delimiter, sb);
-                String retVal = computeFileIgnores(new File(dir), delimiter, sb);
-
-                System.err.println("SFLOESS:\n\t" + retVal);
-                return retVal;
-            }
-
-            // -------------------------------------------------------------
-            // Are flow definitions available to process?
-            // -------------------------------------------------------------
-            boolean isFlowDefinitionsAvailable(String dir) {
-                return new File(dir, "flowDefinitions").exists();
-            }
-
-            // -------------------------------------------------------------
-            // Are entitlement processes available to process?
-            // -------------------------------------------------------------
-            boolean isEntitlementProcessesAvailable(String dir) {
-                return new File(dir, "entitlementProcesses").exists();
-            }
-
-            // -------------------------------------------------------------
-            // Are milestone types available to process?
-            // -------------------------------------------------------------
-            boolean isMilestoneTypesAvailable(String dir) {
-                return new File(dir, "milestoneTypes").exists();
-            }
-
-            // -------------------------------------------------------------
-            // Are the types available to process?
-            // -------------------------------------------------------------
-            boolean isAvailable(String dir) {
-                return isFlowDefinitionsAvailable(dir) || isEntitlementProcessesAvailable(dir) || isMilestoneTypesAvailable(dir);
-            }
-
-            // -------------------------------------------------------------
-            // Need some delimiter...if it's null default to spaces...
-            // -------------------------------------------------------------
-            String computeDelimiter(String delimiter) {
-                return null == delimiter ? "," : delimiter;
-            }
-
-            // -------------------------------------------------------------
-            // Compute which flows we will ignore...
-            // -------------------------------------------------------------
-            String computeIgnores(String dir, String delimiter) {
-                // Make sure dirs exist!
-                if (! isAvailable(dir)) {
-                    return "";
-                }
-
-                return computeIgnores(dir, delimiter, new StringBuilder());
-            }
-
-            // -------------------------------------------------------------
-            // Main entry of script...
-            // -------------------------------------------------------------
-            project.setProperty(attributes.get("property"), computeIgnores(attributes.get("dir"), computeDelimiter(attributes.get("delimiter"))));
-        ]]>
-	</scriptdef>
-
 	<macrodef name="push" backtrace="true" uri="http://www.redhat.com/sfdc" description="This will push the master to SFDC dependent environments - its is an additive push">
 		<attribute name="masterEnv"              default="${solenopsis.env.MASTER}"     description="The master environment who has the correct data defined"/>
 		<attribute name="dependentEnv"           default="${solenopsis.env.DEPENDENT}"  description="The dependent environment from which to push"/>
@@ -3411,16 +3390,6 @@ ${sfdc-util.SF-JAR.PATH}
 			<delete dir="${push.tmp.DIR}"/>
 			<mkdir dir="${push.tmp.DIR}"/>
 
-			<rh-util:property name="push.meta.tmp.DIR" value="${solenopsis.temp.DIR}/push-meta"/>
-			<delete dir="${push.meta.tmp.DIR}"/>
-			<mkdir dir="${push.meta.tmp.DIR}"/>
-
-            <sf:bulkRetrieve username="${push.USERNAME}" password="${push.PASSWORD}" serverurl="${push.URL}" maxPoll="@{maxPoll}" metadataType="${sf.metadata.flowDefinitions}" retrieveTarget="${push.meta.tmp.DIR}" batchSize="1000" apiVersion="${push.VERSION}" unzip="true"/>
-            <sf:bulkRetrieve username="${push.USERNAME}" password="${push.PASSWORD}" serverurl="${push.URL}" maxPoll="@{maxPoll}" metadataType="${sf.metadata.entitlementProcesses}" retrieveTarget="${push.meta.tmp.DIR}" batchSize="1000" apiVersion="${push.VERSION}" unzip="true"/>
-            <sf:bulkRetrieve username="${push.USERNAME}" password="${push.PASSWORD}" serverurl="${push.URL}" maxPoll="@{maxPoll}" metadataType="${sf.metadata.milestoneTypes}" retrieveTarget="${push.meta.tmp.DIR}" batchSize="1000" apiVersion="${push.VERSION}" unzip="true"/>
-
-            <rh-sfdc:computeIgnores dir="${push.meta.tmp.DIR}" property="push.flow.ignore"/>
-
 			<rh-util:ifNotSet property="sf.filesContain">
 				<rh-util:then>
 					<copy todir="${push.tmp.DIR}">
@@ -3482,6 +3451,11 @@ ${sfdc-util.SF-JAR.PATH}
 				<replace dir="${push.tmp.DIR}" includes="*/**" token="${push.credentials.replace.TOKEN}" value="${push.credentials.replace.REAL_VALUE}"/>
 			</rh-util:processPropertyAsList>
 
+            <!--
+                Process the implicit ignores...
+            -->
+            <rh-sfdc:processImplicitIgnores dependentEnv="@{dependentEnv}" dir="${push.tmp.DIR}" maxPoll="@{maxPoll}"/>
+
 			<!--
 				Zip it up...
 			-->
@@ -3517,8 +3491,6 @@ ${sfdc-util.SF-JAR.PATH}
                 Jar:                       [${sf.migrationToolJar}]
 
 			</echo>
-
-            <fail/>
 
             <rh-sfdc:generateDeployXml dir="${push.tmp.DIR}" antJar="${sf.migrationToolJar}" apiVersion="${push.VERSION}" username="${push.USERNAME}" password="${push.PASSWORD}" serverurl="${push.URL}" zipFile ="${push.DEPLOY_FILE}" trace="@{trace}" runAllTests="@{runAllTests}" maxPoll="@{maxPoll}" allowMissingFiles="@{allowMissingFiles}" checkOnly="@{checkOnly}" logType="@{logType}" ignoreWarnings="@{ignoreWarnings}" dumpFiles="@{dumpFiles}" showPasswords="@{showPasswords}"/>
 
