@@ -2456,7 +2456,7 @@ ${sfdc-util.SF-JAR.PATH}
                     int maxVersion = computeMaxFlowVersion(xpath, flowDefinition);
 
                     for (int version = 1; version < maxVersion; version++) {
-                        File removeFile = new File(removeDir, computeBaseName(flowDefinition));
+                        File removeFile = new File(removeDir, computeBaseName(flowDefinition) + "-" + version + ".flow");
 
                         System.out.print("        " + removeFile + ": ");
                         System.out.println(removeFile.delete());
@@ -2470,7 +2470,7 @@ ${sfdc-util.SF-JAR.PATH}
             void removeFlows(File metadataDir, File removeDir) {
                 System.out.println("    Removing the following flows from deployment:");
 
-                removeFlows(XPathFactory.newInstance().newXPath(), computeFiles(new File(removeDir, "flowDefinitions").listFiles()), removeDir);
+                removeFlows(XPathFactory.newInstance().newXPath(), computeFiles(new File(removeDir, "flowDefinitions").listFiles()), new File(removeDir, "flows"));
             }
 
             // -------------------------------------------------------------
@@ -2480,7 +2480,7 @@ ${sfdc-util.SF-JAR.PATH}
                 System.out.println("    Removing the following " + removeDir.getName() + " from deployment:");
 
                 for (File aFile : toRemove) {
-                    File removeFile = new File(removeDir, computeBaseName(aFile));
+                    File removeFile = new File(removeDir, aFile.getName());
 
                     System.out.print("        " + removeFile + ": ");
                     System.out.println(removeFile.delete());
