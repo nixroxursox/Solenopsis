@@ -2369,6 +2369,51 @@ ${sfdc-util.SF-JAR.PATH}
 
     <!-- =========================================================================================== -->
 
+	<macrodef name="retrieveMetadata" backtrace="true" uri="http://www.redhat.com/sfdc" description="Retrieve metadata">
+		<attribute name="dependentEnv" default="${solenopsis.env.DEPENDENT}" description="The dependent environment from which to pull metadata"/>
+		<attribute name="dir"                                                description="The directory containing files that may contain file that should be ignored"/>
+        <attribute name="metadataType"                                       description="The type of metadata to retrieve"/>
+		<attribute name="maxPoll"      default="${sf.maxPoll}"               description="The number of times to poll the SFDC environment when deploying"/>
+        <attribute name="batchSize"    default="${sf.batchSize}"             description="The batch size to use when retrieving metadata"/>
+		<attribute name="description"  default=""                            description="Comment regarding calling this macrodef"/>
+
+		<sequential>
+			<rh-sfdc:compute-env-values env="@{dependentEnv}" username="retrieveMetadata.USERNAME" webServicePassword="retrieveMetadata.PASSWORD" url="retrieveMetadata.URL" version="retrieveMetadata.VERSION"/>
+			<mkdir dir="@{dir}"/>
+
+            <ac:trycatch property="retrieveMetadata.FAILURE">
+                <ac:try>
+                    <sf:bulkRetrieve username="${retrieveMetadata.USERNAME}" password="${retrieveMetadata.PASSWORD}" serverurl="${retrieveMetadata.URL}" maxPoll="@{maxPoll}" metadataType="@{metadataType}" retrieveTarget="@{dir}" batchSize="@{batchSize}" apiVersion="${retrieveMetadata.VERSION}" unzip="true"/>
+                </ac:try>
+
+                <ac:catch>
+                    <echo>
+                        WARNING RETRIEVING [@{metadataType}]:  ${retrieveMetadata.FAILURE}
+
+                        IGNORING [@{metadataType}]
+                    </echo>
+                </ac:catch>
+            </ac:trycatch>
+        </sequential>
+    </macrodef>
+    <!-- =========================================================================================== -->
+
+	<macrodef name="retrieveImplicitMetadata" backtrace="true" uri="http://www.redhat.com/sfdc" description="Retrieve implicit metadata">
+		<attribute name="dependentEnv" default="${solenopsis.env.DEPENDENT}" description="The dependent environment from which to pull metadata"/>
+		<attribute name="dir"                                                description="The directory containing files that may contain file that should be ignored"/>
+		<attribute name="maxPoll"      default="${sf.maxPoll}"               description="The number of times to poll the SFDC environment when deploying"/>
+        <attribute name="batchSize"    default="${sf.batchSize}"             description="The batch size to use when retrieving metadata"/>
+		<attribute name="description"  default=""                            description="Comment regarding calling this macrodef"/>
+
+		<sequential>
+            <rh-sfdc:retrieveMetadata dependentEnv="@{dependentEnv}" dir="@{dir}" metadataType="${sf.metadata.flowDefinitions}"      maxPoll="@{maxPoll}" batchSize="@{batchSize}"/>
+            <rh-sfdc:retrieveMetadata dependentEnv="@{dependentEnv}" dir="@{dir}" metadataType="${sf.metadata.entitlementProcesses}" maxPoll="@{maxPoll}" batchSize="@{batchSize}"/>
+            <rh-sfdc:retrieveMetadata dependentEnv="@{dependentEnv}" dir="@{dir}" metadataType="${sf.metadata.milestoneTypes}"       maxPoll="@{maxPoll}" batchSize="@{batchSize}"/>
+        </sequential>
+    </macrodef>
+
+    <!-- =========================================================================================== -->
+
     <scriptdef name="removeImplicitIgnores" uri="http://www.redhat.com/sfdc" language="beanshell" description="Compute the flows to ignore">
         <classpath refid="solenopsis.script.PATH"/>
 
@@ -2546,9 +2591,7 @@ ${sfdc-util.SF-JAR.PATH}
 			<delete dir="${processImplicitIgnores.tmp.DIR}"/>
 			<mkdir dir="${processImplicitIgnores.tmp.DIR}"/>
 
-            <sf:bulkRetrieve username="${processImplicitIgnores.USERNAME}" password="${processImplicitIgnores.PASSWORD}" serverurl="${processImplicitIgnores.URL}" maxPoll="@{maxPoll}" metadataType="${sf.metadata.flowDefinitions}" retrieveTarget="${processImplicitIgnores.tmp.DIR}" batchSize="@{batchSize}" apiVersion="${processImplicitIgnores.VERSION}" unzip="true"/>
-            <sf:bulkRetrieve username="${processImplicitIgnores.USERNAME}" password="${processImplicitIgnores.PASSWORD}" serverurl="${processImplicitIgnores.URL}" maxPoll="@{maxPoll}" metadataType="${sf.metadata.entitlementProcesses}" retrieveTarget="${processImplicitIgnores.tmp.DIR}" batchSize="@{batchSize}" apiVersion="${processImplicitIgnores.VERSION}" unzip="true"/>
-            <sf:bulkRetrieve username="${processImplicitIgnores.USERNAME}" password="${processImplicitIgnores.PASSWORD}" serverurl="${processImplicitIgnores.URL}" maxPoll="@{maxPoll}" metadataType="${sf.metadata.milestoneTypes}" retrieveTarget="${processImplicitIgnores.tmp.DIR}" batchSize="@{batchSize}" apiVersion="${processImplicitIgnores.VERSION}" unzip="true"/>
+            <rh-sfdc:retrieveImplicitMetadata dependentEnv="@{dependentEnv}" dir="${processImplicitIgnores.tmp.DIR}" maxPoll="@{maxPoll}" batchSize="@{batchSize}"/>
 
             <rh-sfdc:removeImplicitIgnores metadatadir="${processImplicitIgnores.tmp.DIR}" removedir="@{dir}"/>
         </sequential>
