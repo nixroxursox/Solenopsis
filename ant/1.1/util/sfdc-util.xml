@@ -2490,7 +2490,12 @@ ${sfdc-util.SF-JAR.PATH}
             // Compute the maximum version of a flow.
             // -------------------------------------------------------------
             int computeMaxFlowVersion(XPath xpath, File flowDefinition) {
-                return Integer.parseInt(computeVersion(xpath, flowDefinition)) + 1;
+                try {
+                    return Integer.parseInt(computeVersion(xpath, flowDefinition)) + 1;
+                } catch (NumberFormatException nfe) {
+                    System.out.println("Trouble converting flow [" + flowDefinition + "] to a version...returning 1");
+                    return 1;
+                }
             }
 
             // -------------------------------------------------------------
