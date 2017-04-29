@@ -1,0 +1,11 @@
+ObjectUtils() {
+    Object ensure(obj) {
+        if (null == obj) {
+            throw new IllegalArgumentException("Object is null");
+        }
+
+        return obj;
+    }
+
+    return this;
+}

@@ -1,4 +1,6 @@
 FileUtils() {
+    stringUtils = StringUtils();
+
     class ExtensionFilter implements FilenameFilter {
         ExtensionFilter(String extension) {
             this.extension = extension;
@@ -19,4 +21,23 @@ FileUtils() {
     List findByExtension(String dir, String extension) {
         return findByExtension(new File(dir), extension);
     }
+
+    /**
+        Compute the relative dir name.
+
+        @param file is the name of the file we desire the relative directory.
+
+        @return the relative directory name.
+
+        @throws IllegalArgumentException if file is null or blank.
+     */
+    String computeRelativeDirName(final String file) {
+        return new File(stringUtils.ensure(file)).getName();
+    }
+
+    boolean isDir(final String dir) {
+        return new File(stringUtils.ensure(dir)).isDirectory();
+    }
+
+    return this;
 }
