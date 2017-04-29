@@ -181,6 +181,28 @@ ${sfdc-util.SF-JAR.PATH}
 
     <!-- =========================================================================================== -->
 
+    <scriptdef name="bean-shell" uri="http://www.redhat.com/sfdc" language="beanshell" description="Computes the XSLT to apply using the sfdcignore file">
+        <classpath refid="solenopsis.script.PATH"/>
+
+		<![CDATA[
+        /*
+            //addClassPath(project.getProperty("solenopsis.bsh.HOME"));
+            addClassPath(project.getProperty("/home/sfloess/Development/github/solenopsis/Solenopsis/bsh");
+
+
+            //System.out.println("Is this blank: " + su.isBlank("foo"));
+            */
+
+            importCommands(".");
+
+            su = StringUtils();
+            System.out.println("Is this blank: " + su.isBlank("foo"));
+            print ("Hello");
+		]]>
+	</scriptdef>
+
+    <!-- =========================================================================================== -->
+
     <scriptdef name="createPackageXmlChildren" uri="http://www.redhat.com/sfdc" language="beanshell" description="Computes the XSLT to apply using the sfdcignore file">
         <classpath refid="solenopsis.script.PATH"/>
 
