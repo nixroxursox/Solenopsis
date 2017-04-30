@@ -1,13 +1,42 @@
+/**
+    File utility class.
+ */
 FileUtils() {
+    /**
+     *  For validation.
+     */
     stringUtils = StringUtils();
+    objectUtils = ObjectUtils();
 
-    class ExtensionFilter implements FilenameFilter {
-        ExtensionFilter(String extension) {
-            this.extension = extension;
+    /**
+     * A file name filter that filters by file extension.
+     */
+    class FileExtensionFilter implements FilenameFilter {
+        FileExtensionFilter(String extension) {
+            this.extension = stringUtils.ensure(extension, "Extension is blank!");
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        boolean accept(File dir, String name) {
+            return name.endsWith(extension);
         }
     }
 
-    List findByExtension(File dir, String extenstion) {
+    /**
+     * Find files by extension.
+     *
+     * @param dir the directory to search for files with an extension.
+     * @param extension the file extension desired.
+     *
+     * @return a list of files with the requested extension.
+     */
+    List findByExtension(File dir, String extension) {
+        objectUtils.ensure(dir, "Directory is null!");
+        stringUtils.ensure(extension);
+
+        return dir.listFiles(new FileExtensionFilter(extension));
     }
 
     /**
@@ -23,20 +52,52 @@ FileUtils() {
     }
 
     /**
-        Compute the relative dir name.
-
-        @param file is the name of the file we desire the relative directory.
-
-        @return the relative directory name.
-
-        @throws IllegalArgumentException if file is null or blank.
+     * Compute the relative dir name.
+     *
+     * @param file is the name of the file we desire the relative directory.
+     *
+     * @return the relative directory name.
+     *
+     * @throws IllegalArgumentException if file is null or blank.
      */
     String computeRelativeDirName(final String file) {
-        return new File(stringUtils.ensure(file)).getName();
+        return new File(stringUtils.ensure(file, "File is blank - cannot compute relateive dir name!")).getName();
     }
 
-    boolean isDir(final String dir) {
-        return new File(stringUtils.ensure(dir)).isDirectory();
+    /**
+     * Computes the base name for a file.
+     *
+     * @param file is the file to compuate the base name.
+     *
+     * @throws IllegalArgumentException if file is null.
+     */
+     String computeBaseName(File file) {
+         objectUtils.ensure(file, "File is null - cannot compute base name!");
+
+         return file.getName().split("\\.") [0];
+     }
+
+    /**
+     * Determine if a file is a directory.
+     *
+     * @param file is the file to determine if a directory.
+     *
+     * @return true if file is directory.
+     */
+    boolean isDir(final String file) {
+        return new File(stringUtils.ensure(file, "File is blank - cannot determine if it's a dir!")).isDirectory();
+    }
+
+    /**
+     * From a file array, if null, return an empt array.  Helps to avoid null
+     * checking and allowing things like for-loops to be more natural.
+     *
+     * @param files an array if null, will return an empty file array.
+     *
+     * @return the files array if not null or an empty array if null.
+     */
+    File[] computeFiles(File[] files) {
+        return null != files ? files : new File[0];
     }
 
     return this;

@@ -1,14 +1,47 @@
+/**
+ * String utility class.
+ */
 StringUtils() {
+    /**
+     * Return true if str is blank (null or empty).
+     *
+     * @param str is the string to examine for being blank.
+     *
+     * @return tru if str is blank (null or empty).
+     */
     boolean isBlank(String str) {
         return (null == str || "".equals(str.trim()));
     }
 
-    String ensure(String str) {
+    /**
+     * Ensures the string is not blank.  If so, raise an IllegalArgumentException.
+     *
+     * @param str the string to compare.
+     * @param errorMsg is the error message to include in the IllegalArgumentException if str is blank.
+     *
+     * @return str if it's not blank.
+     *
+     * @throws IllegalArgumentException if str is blank.
+     */
+    String ensure(String str, String errorMsg) {
         if (isBlank(Str)) {
-            throw new IllegalArgumentException();
+            throw new IllegalArgumentException(errorMsg);
         }
 
         return str;
+    }
+
+    /**
+     * Ensures the string is not blank.  If so, raise an IllegalArgumentException.
+     *
+     * @param str the string to compare.
+     *
+     * @return str if it's not blank.
+     *
+     * @throws IllegalArgumentException if str is blank.
+     */
+    String ensure(String str) {
+        return ensure(str, "String is blank!");
     }
 
     return this;

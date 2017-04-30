@@ -1,10 +1,37 @@
+/**
+ * Object utility class.
+ */
 ObjectUtils() {
-    Object ensure(obj) {
+    /**
+     * Ensure an object is not null.
+     *
+     * @param obj to determine if null.
+     * @param errorMsg is the error message for the IllegalArgumentException if obj is null.
+     *
+     * @return obj if not null.
+     *
+     * @throws IllegalArgumentException if obj is null.
+     */
+    Object ensure(obj, String errorMsg) {
         if (null == obj) {
-            throw new IllegalArgumentException("Object is null");
+            throw new IllegalArgumentException(errorMsg);
         }
 
         return obj;
+    }
+
+    /**
+     * Ensure an object is not null.
+     *
+     * @param obj to determine if null.
+     * @param errorMsg is the error message for the IllegalArgumentException if obj is null.
+     *
+     * @return obj if not null.
+     *
+     * @throws IllegalArgumentException if obj is null.
+     */
+    Object ensure(obj) {
+        return ensure(obj, "Object is null!");
     }
 
     return this;
