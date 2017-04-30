@@ -1,0 +1,111 @@
+/**
+ * XSLT utility class.
+ */
+XSLUtils() {
+    import javax.xml.transform.Result; 
+    import javax.xml.transform.OutputKeys;
+    import javax.xml.transform.TransformerFactory; 
+    import javax.xml.transform.Transformer; 
+    import javax.xml.transform.stream.StreamSource; 
+    import javax.xml.transform.stream.StreamResult;
+
+    objectUtils = ObjectUtils();
+    stringUtils = StringUtils();
+    ioUtils     = IOUtils();
+
+    /**
+     * Create a new Transformer for file.
+     *
+     * @param file is the file to create a transformer.
+     *
+     * @return a transformer.
+     *
+     * @throws IllegalArgumentException if file is null.
+     */
+    Transformer createTransformer(File file) {
+        objectUtils.ensure(file, "Cannot create a transformer for a null XSLT file!");
+
+        return TransformerFactory.newInstance("net.sf.saxon.TransformerFactoryImpl", null).newTransformer(new StreamSource(file));
+    }
+
+    /**
+     * Create a new Transformer for a string.
+     *
+     * @param str is the string to create a transformer.
+     *
+     * @return a transformer.
+     *
+     * @throws IllegalArgumentException if file is null.
+     */
+    Transformer createTransformer(String str) {
+        stringUtils.ensure(str, "Cannot create a transformer for a blank XSLT string!");
+
+        return TransformerFactory.newInstance("net.sf.saxon.TransformerFactoryImpl", null).newTransformer(new StringReader(file));
+    }
+
+    /**
+     * Transform the input string.
+     *
+     * @param transformer will perform the transformation.
+     * @param toTransform will be transformed.
+     *
+     * @return the transformed string.
+     *
+     * @throws IllegalArgumentException if transformer is null or toTransform is blank.
+     */
+    String transform(Transformer transformer, String toTransform) {
+        objectUtils.ensure(transformer, "Cannot perform a transformation on a null XSLT transformer!");
+        stringUtils.ensure(toTransform, "Cannot transform the input string as it is blank!");
+
+        ByteArrayOutputStream baos = null;
+        StringReader stringReader = null;
+
+        try {
+            baos = new ByteArrayOutputStream();
+            stringReader = new StringReader(toTransform);
+
+            StreamSource input = new StreamSource(stringReader);
+
+            StreamResult output = new StreamResult(boas);
+
+            transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "4");
+
+            transformer.transform(input, output);
+
+            return baos.toString();
+            
+        } finally {
+            ioUtils.close(baos);
+            ioUtils.close(stringReader);
+        }
+    }
+
+    /**
+     * Transform using the XSL contained in xslFile.
+     *
+     * @param xslFile is the XSLT file used for transformation.
+     * @param toTransform is the string to transform.
+     *
+     * @throws IllegalArgumentException if xsltFile is null or toTransform is blank.
+     */
+    String tansform(File xslFile, String toTransform) {
+        return transform(createTransformer(xsltFile, toTransform));
+    }
+
+    /**
+     * Transforms toTransform using the XSL in xsl.
+     *
+     * @param xsl is a string representation of XSLT.
+     * @param toTransform is what is to be transformed.
+     *
+     * @throws IllegalArgumentException if xsl or toTransform are blank.
+     */
+    String transform(String xsl, String toTransform) {
+        stringUtils.ensure(xsl, "Cannot transform using a blank XSLT!");
+        stringUtils.ensure(toTransform, "Cannot transform a blank string!");
+
+        return transform(createTransformer(xsl, toTransform));
+    }
+
+    return this;
+}

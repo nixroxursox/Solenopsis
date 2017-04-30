@@ -7,6 +7,7 @@ FileUtils() {
      */
     stringUtils = StringUtils();
     objectUtils = ObjectUtils();
+    ioUtils     = IOUtils();
 
     /**
      * A file name filter that filters by file extension.
@@ -78,6 +79,18 @@ FileUtils() {
      }
 
     /**
+     * From a file array, if null, return an empt array.  Helps to avoid null
+     * checking and allowing things like for-loops to be more natural.
+     *
+     * @param files an array if null, will return an empty file array.
+     *
+     * @return the files array if not null or an empty array if null.
+     */
+    File[] computeFiles(File[] files) {
+        return null != files ? files : new File[0];
+    }
+
+    /**
      * Determine if a file is a directory.
      *
      * @param file is the file to determine if a directory.
@@ -89,15 +102,73 @@ FileUtils() {
     }
 
     /**
-     * From a file array, if null, return an empt array.  Helps to avoid null
-     * checking and allowing things like for-loops to be more natural.
+     * Convert file contents to a string.
      *
-     * @param files an array if null, will return an empty file array.
+     * @param file is the file to convert to a string.
      *
-     * @return the files array if not null or an empty array if null.
+     * @throws IllegalArgumentException if file is null.
      */
-    File[] computeFiles(File[] files) {
-        return null != files ? files : new File[0];
+    String toString(File file) {
+        objectUtils.ensure(file, "Cannot convert file to a string - it's null!");
+
+        RandomAccessFile raf = null;
+        
+        try {
+            raf = new RandomAccessFile(file, "+r");
+            
+            byte[] rawData = new byte[raf.length()];
+
+            raf.read(raf);
+
+            return new String(rawData);
+            
+        } finally {
+            ioUtils.close(raf);
+        }
+    }
+
+    /**
+     * Convert file contents to a string.
+     *
+     * @param filename is the name of the file to load and convert to a string.
+     *
+     * @throws IllegalArgumentException if file is null.
+     */
+    String toString(String fileName) {
+        toString(new File(stringUtils.ensure(fileName, "File name is blank!")));
+    }
+
+    /**
+     * Write a string out to file..
+     *
+     * @param file is the file to write str to.
+     * @param str is the string to write to file.
+     *
+     * @throws IllegalArgumentException if file is null.
+     */
+    void toFile(File file, String str) {
+        objectUtils.ensure(file, "Cannot convert string to a file - file is null!");
+
+        RandomAccessFile raf = null;
+
+        try {
+            raf = new RandomeAccessFile(file, "+rw");
+            raf.write(null != str ? str.getBytes() : "".getBytes()));
+        } finally {
+            ioUtils.close(raf);
+        }
+    }
+
+    /**
+     * Write a string out to a file named fileName.
+     *
+     * @param fileName is the name of the file to write str to.
+     * @param str is the string to write to file.
+     *
+     * @throws IllegalArgumentException if fileName is blank.
+     */
+    void toFile(String fileName, String str) {
+        toFile(new File(stringUtils.ensure(fileName, "Cannot write string to a blank file name!")), str);
     }
 
     return this;

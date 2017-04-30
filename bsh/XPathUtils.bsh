@@ -6,6 +6,8 @@ XPathUtils() {
     import javax.xml.xpath.XPathExpression;
     import javax.xml.xpath.XPathFactory;
 
+    import org.xml.sax.InputSource;
+
     fileUtils   = FileUtils();
     stringUtils = StringUtils();
     objectUtils = ObjectUtils();
@@ -37,7 +39,6 @@ XPathUtils() {
 
          return xpath.evaluate(toEvaluate, new InputSource(inputStream));
      }
-
 
     return this;
 }
