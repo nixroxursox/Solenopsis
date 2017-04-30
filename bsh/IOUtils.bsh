@@ -3,16 +3,32 @@
  */
 IOUtils() {
     /**
-     * Attempt to close an InputStream.
+     * Attempt to close a Closeable.
      *
-     * @param is the input stream to close.
+     * @param closeable the thing to close.
+     * @param errorMsg is the error message to emit should closeable have trouble closing.
      */
-    void close(InputStream is) {
-        try {
-            is.close();
-        } catch (IOException ioException) {
-            System.err.println("Trouble closing input stream!");
+    void close(Closeable closeable, String errorMsg) {
+        // Don't try to close if null.
+        if (null == closeable) {
+            System.err.println("Warning:  closeable is null - cannot close!");
+            return;
         }
+
+        try {
+            closeable.close();
+        } catch (IOException ioException) {
+            System.err.println(errorMsg);
+        }
+    }
+
+    /**
+     * Attempt to close a Closeable.
+     *
+     * @param closeable the thing to close.
+     */
+    void close(Closeable closeable) {
+        close(closeable, "Trouble closing!");
     }
 
     return this;
