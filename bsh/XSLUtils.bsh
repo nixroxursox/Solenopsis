@@ -12,6 +12,7 @@ XSLUtils() {
     objectUtils = ObjectUtils();
     stringUtils = StringUtils();
     ioUtils     = IOUtils();
+    fileUtils   = FileUtils();
 
     /**
      * Create a new Transformer for file.
@@ -105,6 +106,37 @@ XSLUtils() {
         stringUtils.ensure(toTransform, "Cannot transform a blank string!");
 
         return transform(createTransformer(xsl, toTransform));
+    }
+
+    /**
+     * Will use an XSLT file and transform toTransform, emitting the output to outputFile.
+     *
+     * @param xslFile contains the XSLT.
+     * @param toTransform is the data to transform.
+     * @param outputFile is the file where the transformation will be written.
+     *
+     * @throws IllegalArgumentException if xslFile/outputFile are null or if toTransform is blank.
+     */
+    void transformToFile(File xslFile, String toTransform, File outputFile) {
+        ioUtils.ensure(outputFile, "Cannot transform to a null file!");
+
+        ioUtils.toFile(transform(xslFile, toTransform), outputFile);
+    }
+
+    /**
+     * Will use an XSLT file and transform toTransform, emitting the output to outputFile.
+     *
+     * @param xsl the XSLT.
+     * @param toTransform is the data to transform.
+     * @param outputFileName the output file name where the transform will be written.
+     *
+     * @throws IllegalArgumentException if xsl/toTransform/outputFileName are blank or outputFile are null or if toTransform is blank.
+     */
+    void transformToFile(String xsl, String toTransform, String outputFileName) {
+        stringUtils.ensure(xsl, "The XSL cannot be blank for transformtion!");
+        stringUtils.ensure(outputFilename, "The output file name cannot be blank!");
+
+        ioUtils.toFile(transform(xsl, toTransform), new File(outputFileName));
     }
 
     return this;
