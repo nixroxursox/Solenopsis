@@ -27,4 +27,4 @@ script:
 after_success:
   - pip install copr-cli simplejson jinja2
   - openssl aes-256-cbc -K $encrypted_56af48627afb_key -iv $encrypted_56af48627afb_iv -in .copr.enc -out .copr -d
-  - copr-cli --config .copr build -r ${OS_DIST}-${OS_VERSION}-${OS_ARCH} ${COPR_REPOSITORY} *.src.rpm
+  - if [ ! -z "${TRAVIS_TAG}" ]; then travis_wait copr-cli --config .copr build -r ${OS_DIST}-${OS_VERSION}-${OS_ARCH} ${COPR_REPOSITORY} *.src.rpm; fi
