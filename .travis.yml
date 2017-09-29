@@ -7,17 +7,15 @@ env:
     - COPR_REPOSITORY=https://copr.fedorainfracloud.org/coprs/pcon/Solenopsis/
     - OS_ARCH=noarch
   matrix:
-    - OS_TYPE=fedora OS_DIST=fedora OS_VERSION=25
-    - OS_TYPE=fedora OS_DIST=fedora OS_VERSION=26
-    - OS_TYPE=fedora OS_DIST=fedora OS_VERSION=27
     - OS_TYPE=centos OS_DIST=epel OS_VERSION=7
-    - OS_TYPE=centos OS_DIST=epel OS_VERSION=6
 
 services:
   - docker
 
-
 install: true
+
+before_script:
+  - make tarball
 
 script:
   - docker run -v ${PWD}:/sources -v ${PWD}:/output:Z -e "SRPM_ONLY=1" ${DOCKER_IMAGE}:${OS_TYPE}-${OS_VERSION}
