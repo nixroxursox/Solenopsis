@@ -17,9 +17,9 @@ services:
 install: true
 
 before_script:
-  - mkdir -p /tmp/$(NAME)-$(VERSION)
-  - cp -a * /tmp/$(NAME)-$(VERSION)/
-  - tar czf $(NAME)-$(VERSION).tar.gz -C /tmp $(NAME)-$(VERSION)
+  - mkdir -p /tmp/${NAME}-${VERSION}
+  - cp -a * /tmp/${NAME}-${VERSION}/
+  - tar czf ${NAME}-${VERSION}.tar.gz -C /tmp ${NAME}-${VERSION}
 
 script:
   - docker run -v ${PWD}:/sources -v ${PWD}:/output:Z -e "SRPM_ONLY=1" ${DOCKER_IMAGE}:${OS_TYPE}-${OS_VERSION}
