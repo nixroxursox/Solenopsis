@@ -4,7 +4,7 @@ language: python
 env:
   global:
     - DOCKER_IMAGE=alectolytic/rpmbuilder
-    - COPR_REPOSITORY=https://copr.fedorainfracloud.org/coprs/pcon/Solenopsis/
+    - COPR_REPOSITORY=Solenopsis
     - OS_ARCH=noarch
     - NAME=solenopsis
     - VERSION=1.2
