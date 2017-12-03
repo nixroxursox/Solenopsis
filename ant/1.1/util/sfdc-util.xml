@@ -1810,9 +1810,9 @@ ${sfdc-util.SF-JAR.PATH}
     <scriptdef name="mergePackageXml" uri="http://www.redhat.com/sfdc" language="beanshell" description="Merge XML contained in properties">
         <classpath refid="solenopsis.script.PATH"/>
 
-        <attribute name="packageXml"/>
-        <attribute name="toMerge"/>
         <attribute name="property"/>
+        <attribute name="packageXml"/>
+        <attribute name="xmlToMerge"/>
 
 		<![CDATA[
         
@@ -1831,23 +1831,30 @@ ${sfdc-util.SF-JAR.PATH}
             import javax.xml.transform.stream.StreamResult;
 
             // ---------------------------------------------------------------------
-            // Will grab all child elements out of the project so we can stich
+            // Will grab all child elements out of the project so we can stitch
             // them back together.
             // ---------------------------------------------------------------------
 
+            //
+            // May consider externalizing to a file...
+            //
             String xsl = "<?xml version='1.0' encoding='UTF-8'?>\n" +
-                "<xsl:stylesheet version='1.0' xmlns:xsl='http://www.w3.org/1999/XSL/Transform'>\n" +
-                "    <xsl:output method='xml' version="1.0' indent='yes'/>\n"
+                "<xsl:transform version='1.0' xmlns:xsl='http://www.w3.org/1999/XSL/Transform' xmlns:sfdc='http://soap.sforce.com/2006/04/metadata'>\n" +
+                "    <xsl:output method='xml'/>\n" + 
                 "    <xsl:template match='/'>\n" +
-                "        <xsl:apply-templates select='project'/>\n" + 
+                "        <foo xmlns:sfdc='http://soap.sforce.com/2006/04/metadata'><xsl:apply-templates select='sfdc:Package'/></foo>\n" + 
                 "    </xsl:template>\n" + 
-                "    <xsl:template match='project'>\n" +
-                "        <xls:apply-templates mode='copy-mode'/>\n" +
+                "    <xsl:template match='sfdc:Package'>\n" +
+                "        <xsl:apply-templates mode='copy-mode'/>\n" +
                 "    </xsl:template>\n" + 
                 "    <xsl:template match='*' mode='copy-mode'>\n" +
-                "        <xls:copy-of select='.'/>\n" +
+                    "        <xsl:copy-of select='.'/>\n" + 
                 "    </xsl:template>\n" +
-                "</xsl:stylesheet>\n";
+                "</xsl:transform>\n";
+
+            String head = "<Package xmlns='http://soap.sforce.com/2006/04/metadata'>\n";
+
+            String tail = "</Package>\n";
 
             // ---------------------------------------------------------------------
             // Returns true if str is null or blank
@@ -1867,15 +1874,60 @@ ${sfdc-util.SF-JAR.PATH}
 
             // ---------------------------------------------------------------------
 
-            String convert
+            Transformer createTransformer() {
+                try {
+                    return TransformerFactory.newInstance("com.sun.org.apache.xalan.internal.xsltc.trax.TransformerFactoryImpl", null).newTransformer(new StreamSource(new StringReader(xsl)));
+                } catch(Exception e) {
+                    System.err.println("    *** Falling back to Saxon XSLT");
+                }
 
-            
+                return TransformerFactory.newInstance("net.sf.saxon.TransformerFactoryImpl", null).newTransformer(new StreamSource(new StringReader(xsl)));
+            }
 
             // ---------------------------------------------------------------------
 
+            String transform(Transformer transformer, String xmlStr) {
+                StreamSource input = new StreamSource(new StringReader(xmlStr));
+
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+
+                StreamResult output = new StreamResult(baos);
+
+                transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "4");
+                transformer.transform(input, output);
+
+                String retVal = baos.toString();
+
+                baos.close();
+
+                System.out.println("SFLOESS:  transform result = [" + retVal + "]");
+
+                return retVal;
+            }
+
+            String transform(String xmlStr) {
+                return transform(createTransformer(), xmlStr);
+            }
 
             // ---------------------------------------------------------------------
 
+            String merge(StringBuilder sb, String packageXml, String toMerge) {
+                return sb.append(head).append(transform(packageXml)).append(transform(toMerge)).append(tail).toString();
+            }
+
+            String merge(String packageXml, String toMerge) {
+                String retVal = merge(new StringBuilder(), packageXml, toMerge);
+
+                System.out.println("SFLOESS:\n" + retVal);
+
+                return retVal;
+            }
+
+            // ---------------------------------------------------------------------
+
+            attributes.put(attributes.get("property"), isAttributeBlank("xmltomerge") ? attributes.get("packagexml") : merge(attributes.get("packagexml"), attributes.get("xmltomerge")));
+
+            // ---------------------------------------------------------------------
 		]]>
 	</scriptdef>
 
@@ -1940,8 +1992,11 @@ ${sfdc-util.SF-JAR.PATH}
 			<mkdir dir="${non-folder-pull.tmp.DIR}"/>
 
             <xmlproperty file="@{replaceVarsFile}" collapseAttributes="true"/>
+
             <loadfile property="non-folder-pull.INCLUDE_PACKAGE_XML" srcFile="@{includePackageFile}"/>
-            <rh-sfdc:mergeXmlFromProperties xml1="${non-folder-pull.PACKAGE}" xml2="${non-folder-pull.INCLUDE_PACKAGE_XML}"/>
+            <rh-sfdc:mergePackageXml property="flossy" packageXml="${non-folder-pull.PACKAGE}" xmlToMerge="${non-folder-pull.INCLUDE_PACKAGE_XML}"/>
+
+            <echo message="${flossy}"/>
 
             <fail/>
 
