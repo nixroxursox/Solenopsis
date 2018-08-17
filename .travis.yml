@@ -18,7 +18,7 @@ env:
 install: true
 
 before_script:
-  - apt-get install -y rpm make
+  - sudo apt-get install -y rpm make
 
 script:
   - mkdir -p /tmp/rpm/BUILD
