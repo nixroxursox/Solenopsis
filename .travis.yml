@@ -1,0 +1,32 @@
+sudo: required
+language: python
+
+env:
+  global:
+    - DOCKER_IMAGE=alectolytic/rpmbuilder
+    - COPR_REPOSITORY=Solenopsis
+    - OS_ARCH=noarch
+    - NAME=solenopsis
+    - VERSION=1.2
+    - RPM_BUILD_ROOT=/tmp/rpmbuild
+    - RPM_BUILD_DIR=/tmp/rpm/BUILD
+    - RPM_ROOT_DIR=.
+    - RPM_SOURCE_DIR=/tmp/rpm/SOURCES
+  matrix:
+    - OS_TYPE=centos OS_DIST=epel OS_VERSION=7
+
+install: true
+
+before_script:
+  - apt-get install -y rpm make
+
+script:
+  - mkdir -p /tmp/rpm/BUILD
+  - mkdir -p /tmp/rpm/RPMS
+  - mkdir -p /tmp/rpm/SOURCES
+  - mkdir -p /tmp/rpm/SPECS
+  - mkdir -p /tmp/rpm/SRPMS
+  - make rpm
+
+after_success:
+  - eche Done
