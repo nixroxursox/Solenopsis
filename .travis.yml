@@ -29,7 +29,7 @@ script:
   - mkdir -p /tmp/rpm/SPECS
   - mkdir -p /tmp/rpm/SRPMS
   - tar czf ${NAME}-${VERSION}.tar.gz -C /tmp/rpm/SOURCES ${NAME}-${VERSION}
-  - rpmbuild --define "_topdir $(RPM_BUILD_ROOT)" -ba ${NAME}.spec
+  - rpmbuild --define "_topdir ${RPM_BUILD_ROOT}" -ba ${NAME}.spec
 
 after_success:
   - eche Done
