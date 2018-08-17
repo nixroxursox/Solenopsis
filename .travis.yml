@@ -27,7 +27,8 @@ script:
   - mkdir -p /tmp/solenopsis-1.2
   - cp -a * /tmp/solenopsis-1.2/
   - ls -la /tmp/solenopsis-1.2/
-  - tar czf /tmp/rpm/SOURCES/solenopsis-1.2.tar.gz -C /tmp/solenopsis-1.2
+  - cd /tmp/solenopsis-1.2
+  - tar czf /tmp/rpm/SOURCES/solenopsis-1.2.tar.gz .
   - ls -la /tmp/solenopsis-1.2
   - rpmbuild --define "_topdir /tmp/rpm" -ba solenopsis.spec
 
