@@ -23,16 +23,11 @@ before_script:
   - sudo apt-get install -y rpm
 
 script:
-  - mkdir -p /tmp/rpm/BUILD
-  - mkdir -p /tmp/rpm/RPMS
-  - mkdir -p /tmp/rpm/SOURCES
-  - mkdir -p /tmp/rpm/SPECS
-  - mkdir -p /tmp/rpm/SRPMS
-  - sed -i 's/Version: .*/Version:  ${VERSION}/g' ${SPECFILE}
-  - mkdir -p /tmp/${NAME}-${VERSION}
-  - cp -a * /tmp/${NAME}-${VERSION}/
-  - tar czf ${NAME}-${VERSION}.tar.gz -C /tmp/rpm/SOURCES ${NAME}-${VERSION}
-  - rpmbuild --define "_topdir ${RPM_BUILD_ROOT}" -ba ${NAME}.spec
+  - mkdir -p /tmp/rpm/BUILD /tmp/rpm/RPMS /tmp/rpm/SOURCES /tmp/rpm/SPECS /tmp/rpm/SRPMS
+  - mkdir -p /tmp/solenopsis-1.2
+  - cp -a * /tmp/solenopsis-1.2/
+  - tar czf solenopsis-1.2.tar.gz -C /tmp/rpm/SOURCES solenopsis-1.2
+  - rpmbuild --define "_topdir ${RPM_BUILD_ROOT}" -ba solenopsis.spec
 
 after_success:
   - eche Done
