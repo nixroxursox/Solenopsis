@@ -8,17 +8,19 @@ env:
     - OS_ARCH=noarch
     - NAME=solenopsis
     - VERSION=1.2
-    - RPM_BUILD_ROOT=/tmp/rpmbuild
+    - RPM_BUILD_ROOT=/tmp/rpm
     - RPM_BUILD_DIR=/tmp/rpm/BUILD
     - RPM_ROOT_DIR=.
     - RPM_SOURCE_DIR=/tmp/rpm/SOURCES
+    - NAME=solenopsis
+    - VERSION=1.2
   matrix:
     - OS_TYPE=centos OS_DIST=epel OS_VERSION=7
 
 install: true
 
 before_script:
-  - sudo apt-get install -y rpm make
+  - sudo apt-get install -y rpm
 
 script:
   - mkdir -p /tmp/rpm/BUILD
@@ -26,7 +28,8 @@ script:
   - mkdir -p /tmp/rpm/SOURCES
   - mkdir -p /tmp/rpm/SPECS
   - mkdir -p /tmp/rpm/SRPMS
-  - make rpm
+  - tar czf ${NAME}-${VERSION}.tar.gz -C /tmp/rpm/SOURCES ${NAME}-${VERSION}
+  - rpmbuild --define "_topdir $(RPM_BUILD_ROOT)" -ba ${NAME}.spec
 
 after_success:
   - eche Done
