@@ -28,6 +28,9 @@ script:
   - mkdir -p /tmp/rpm/SOURCES
   - mkdir -p /tmp/rpm/SPECS
   - mkdir -p /tmp/rpm/SRPMS
+  - sed -i 's/Version: .*/Version:  ${VERSION}/g' ${SPECFILE}
+  - mkdir -p /tmp/${NAME}-${VERSION}
+  - cp -a * /tmp/${NAME}-${VERSION}/
   - tar czf ${NAME}-${VERSION}.tar.gz -C /tmp/rpm/SOURCES ${NAME}-${VERSION}
   - rpmbuild --define "_topdir ${RPM_BUILD_ROOT}" -ba ${NAME}.spec
 
